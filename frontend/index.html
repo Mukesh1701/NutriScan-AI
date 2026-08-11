@@ -1,0 +1,1219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NutriScan AI — Smart Food Classifier</title>
+    <meta name="description" content="AI-powered food recognition system that identifies 37 types of fruits, vegetables, and chicken with nutritional information and weight estimation.">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="style.css?v=6">
+</head>
+<body>
+
+    <!-- Animated background -->
+    <div class="bg-blobs" aria-hidden="true">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <!-- Header -->
+    <header class="header" id="header">
+        <div class="header-inner">
+            <div class="logo">
+                <i data-lucide="scan" class="logo-icon-svg"></i>
+                <span class="logo-text">NutriScan<span class="logo-accent">AI</span></span>
+            </div>
+            <nav class="nav-pills">
+                <button class="pill active" id="nav-classify">Classify</button>
+                <button class="pill" id="nav-calculator">Calculator</button>
+                <button class="pill" id="nav-barcode">Barcode</button>
+                <button class="pill" id="nav-history">History</button>
+                <button class="pill" id="nav-about">About</button>
+            </nav>
+        </div>
+    </header>
+
+    <main class="main">
+
+        <!-- ======================== -->
+        <!-- CLASSIFY PAGE            -->
+        <!-- ======================== -->
+        <div id="page-classify">
+
+            <!-- Hero -->
+            <section class="hero">
+                <h1 class="hero-title">
+                    Identify Food.<br>
+                    <span class="gradient-text">Know What You Eat.</span>
+                </h1>
+                <p class="hero-subtitle">
+                    Upload a photo of any fruit, vegetable, or chicken — our AI identifies it
+                    instantly and shows you the complete nutrition breakdown with weight estimation.
+                </p>
+                <div class="hero-badge">
+                    <span class="badge-pulse"></span>
+                    37 Food Classes &middot; 3 AI Models &middot; Weight Estimation
+                </div>
+            </section>
+
+            <!-- Upload Card -->
+            <section class="upload-section">
+                <div class="upload-card" id="upload-card">
+
+                    <div class="drop-zone" id="drop-zone">
+
+                        <!-- Default state -->
+                        <div class="drop-zone-default" id="drop-zone-default">
+                            <div class="upload-icon-ring">
+                                <svg class="upload-icon" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M24 32V16M24 16L18 22M24 16L30 22" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M8 30V36C8 38.2091 9.79086 40 12 40H36C38.2091 40 40 38.2091 40 36V30" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </div>
+                            <h3 class="drop-title">Drop your food image here</h3>
+                            <p class="drop-subtitle">or click to browse files</p>
+                            <p class="drop-hint">JPG, PNG, WEBP &middot; Max 10MB</p>
+                        </div>
+
+                        <!-- Preview state -->
+                        <div class="preview-state" id="preview-state">
+                            <img id="preview-image" class="preview-image" alt="Food preview">
+                            <button class="btn-remove" id="btn-remove" title="Remove image">&times;</button>
+                        </div>
+
+                        <input type="file" id="file-input" accept="image/*" style="position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;">
+                    </div>
+
+                    <button class="btn-analyze" id="btn-analyze" disabled>
+                        <span class="btn-text" id="btn-text">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                            Analyze Food
+                        </span>
+                        <span class="btn-loading" id="btn-loading">
+                            <span class="spinner"></span>
+                            Analyzing...
+                        </span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- Error message -->
+            <div class="error-toast" id="error-toast">
+                <span class="error-icon"><i data-lucide="alert-triangle" class="icon-inline"></i></span>
+                <span class="error-msg" id="error-msg">Something went wrong</span>
+                <button class="error-close" id="error-close">&times;</button>
+            </div>
+
+            <!-- Results Section -->
+            <section class="results-section" id="results-section">
+
+                <!-- Main result -->
+                <div class="result-hero-card" id="result-hero-card">
+                    <div class="result-emoji" id="result-emoji"><i data-lucide="scan"></i></div>
+                    <h2 class="result-name" id="result-name">Apple</h2>
+                    <div class="confidence-wrapper">
+                        <div class="confidence-track">
+                            <div class="confidence-fill" id="confidence-fill"></div>
+                        </div>
+                        <span class="confidence-label" id="confidence-label">98.5% confidence</span>
+                    </div>
+                </div>
+
+                <!-- ======================== -->
+                <!-- WEIGHT ESTIMATION CARD   -->
+                <!-- ======================== -->
+                <div class="weight-card" id="weight-card">
+                    <div class="weight-card-header">
+                        <div class="weight-icon-circle"><i data-lucide="scale" class="icon-inline"></i></div>
+                        <h3 class="weight-card-title">Estimated Weight</h3>
+                    </div>
+
+                    <div class="weight-display">
+                        <span class="weight-value" id="weight-value">182</span>
+                        <span class="weight-grams">g</span>
+                    </div>
+                    <p class="weight-unit-label" id="weight-unit-label">≈ 1 medium apple</p>
+
+                    <!-- Quantity Stepper -->
+                    <div class="quantity-section">
+                        <span class="quantity-label">Quantity</span>
+                        <div class="quantity-stepper">
+                            <button class="qty-btn" id="qty-minus" aria-label="Decrease quantity">−</button>
+                            <span class="qty-value" id="qty-value">1</span>
+                            <button class="qty-btn" id="qty-plus" aria-label="Increase quantity">+</button>
+                        </div>
+                    </div>
+
+                    <!-- Manual Weight -->
+                    <div class="manual-weight-section">
+                        <div class="manual-toggle-row" id="manual-toggle-row">
+                            <span class="manual-toggle-label">
+                                <i data-lucide="pencil" class="icon-inline"></i> I know the exact weight
+                            </span>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="manual-toggle">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="manual-input-wrapper" id="manual-input-wrapper">
+                            <div class="manual-input-row">
+                                <input type="number" class="manual-weight-input" id="manual-weight-input"
+                                       placeholder="Enter weight..." min="1" max="10000" step="1">
+                                <span class="manual-input-unit">grams</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- View Mode Toggle (Per 100g / Total) -->
+                <div class="view-toggle-wrapper">
+                    <div class="view-toggle" id="view-toggle">
+                        <button class="view-toggle-btn" id="view-per100" data-mode="per100">Per 100g</button>
+                        <button class="view-toggle-btn active" id="view-total" data-mode="total">Total (estimated)</button>
+                    </div>
+                </div>
+
+                <!-- Nutrition grid -->
+                <div class="nutrition-grid" id="nutrition-grid">
+                    <div class="nut-card nut-calories">
+                        <div class="nut-emoji"><i data-lucide="flame" class="icon-inline"></i></div>
+                        <div class="nut-val" id="nut-calories">—</div>
+                        <div class="nut-name">Calories</div>
+                        <div class="nut-unit" id="nut-calories-unit">kcal</div>
+                    </div>
+                    <div class="nut-card nut-protein">
+                        <div class="nut-emoji"><i data-lucide="dumbbell" class="icon-inline"></i></div>
+                        <div class="nut-val" id="nut-protein">—</div>
+                        <div class="nut-name">Protein</div>
+                        <div class="nut-unit" id="nut-protein-unit">g</div>
+                    </div>
+                    <div class="nut-card nut-carbs">
+                        <div class="nut-emoji"><i data-lucide="zap" class="icon-inline"></i></div>
+                        <div class="nut-val" id="nut-carbs">—</div>
+                        <div class="nut-name">Carbs</div>
+                        <div class="nut-unit" id="nut-carbs-unit">g</div>
+                    </div>
+                    <div class="nut-card nut-fat">
+                        <div class="nut-emoji"><i data-lucide="droplet" class="nut-icon"></i></div>
+                        <div class="nut-val" id="nut-fat">—</div>
+                        <div class="nut-name">Fat</div>
+                        <div class="nut-unit" id="nut-fat-unit">g</div>
+                    </div>
+                    <div class="nut-card nut-fiber">
+                        <div class="nut-emoji"><i data-lucide="leaf" class="nut-icon"></i></div>
+                        <div class="nut-val" id="nut-fiber">—</div>
+                        <div class="nut-name">Fiber</div>
+                        <div class="nut-unit" id="nut-fiber-unit">g</div>
+                    </div>
+                </div>
+
+                <!-- Daily Goal Progress Widget -->
+                <div class="goal-progress-card" id="goal-progress-card">
+                    <div class="goal-progress-header">
+                        <div class="goal-progress-icon"><i data-lucide="target" class="icon-inline"></i></div>
+                        <div class="goal-progress-titles">
+                            <h3 class="goal-progress-main-title">Daily Goal Impact</h3>
+                            <span class="goal-progress-subtitle" id="scan-goal-name">Target: 2,000 kcal (Weight Loss)</span>
+                        </div>
+                        <button class="btn-track-meal" id="btn-track-meal">
+                            <i data-lucide="plus" class="icon-inline"></i> Track Meal
+                        </button>
+                    </div>
+                    
+                    <div class="goal-impact-row">
+                        <div class="impact-stat">
+                            <span class="impact-label">Meal Calories</span>
+                            <span class="impact-value" id="meal-impact-calories">182 kcal</span>
+                        </div>
+                        <div class="impact-stat">
+                            <span class="impact-label">Daily Budget Share</span>
+                            <span class="impact-value highlight" id="meal-impact-percent">9.1%</span>
+                        </div>
+                        <div class="impact-stat">
+                            <span class="impact-label">Remaining Today</span>
+                            <span class="impact-value" id="meal-impact-remaining">1,818 kcal</span>
+                        </div>
+                    </div>
+
+                    <div class="goal-progress-bar-wrapper">
+                        <div class="goal-progress-bar-track">
+                            <div class="goal-progress-bar-fill" id="goal-progress-bar-fill" style="width: 0%;"></div>
+                        </div>
+                        <span class="goal-progress-bar-label" id="goal-progress-bar-label">0 / 2,000 kcal logged today</span>
+                    </div>
+                </div>
+
+                <!-- Macro pie chart -->
+                <div class="macro-chart-card" id="macro-chart-card">
+                    <h3 class="section-label">Macro Breakdown</h3>
+                    <div class="macro-chart-row">
+                        <canvas id="macro-canvas" width="180" height="180"></canvas>
+                        <div class="macro-legend" id="macro-legend"></div>
+                    </div>
+                </div>
+
+                <!-- Top 3 -->
+                <div class="top3-card" id="top3-card">
+                    <h3 class="section-label">All Predictions</h3>
+                    <div class="top3-list" id="top3-list"></div>
+                </div>
+
+                <!-- AI Chat Assistant -->
+                <div class="chat-card" id="chat-card">
+                    <div class="chat-header">
+                        <div class="chat-header-icon"><i data-lucide="bot" class="icon-inline"></i></div>
+                        <div class="chat-header-title">Ask NutriScan AI</div>
+                    </div>
+                    <div class="chat-messages" id="chat-messages">
+                        <div class="chat-message ai-message">
+                            Hi! I can help you with recipes, diet plans, or any questions about the detected food above. What would you like to know?
+                        </div>
+                    </div>
+                    <div class="chat-chips" id="chat-chips">
+                        <button class="chat-chip">Is this healthy?</button>
+                        <button class="chat-chip">How to cook this?</button>
+                        <button class="chat-chip">Meal ideas</button>
+                    </div>
+                    <div class="chat-input-row">
+                        <input type="text" class="chat-input" id="chat-input" placeholder="Ask about this food...">
+                        <button class="btn-send" id="btn-send" aria-label="Send message">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Try again -->
+                <button class="btn-again" id="btn-again">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                    Classify Another Food
+                </button>
+            </section>
+        </div>
+
+        <!-- ======================== -->
+        <!-- CALORIE CALCULATOR PAGE  -->
+        <!-- ======================== -->
+        <div id="page-calculator" style="display:none;">
+            <section class="calculator-section">
+
+                <!-- Hero -->
+                <div class="calc-hero">
+                    <h2 class="calc-title">
+                        Personalized <span class="gradient-text">Calorie &amp; Goal Planner</span>
+                    </h2>
+                    <p class="calc-subtitle">
+                        Calculate your exact Basal Metabolic Rate (BMR), Total Daily Energy Expenditure (TDEE),
+                        and recommended daily calories customized for your body and fitness goals.
+                    </p>
+                </div>
+
+                <!-- Calculator Container / Wizard Card -->
+                <div class="calc-container-card">
+
+                    <!-- STEP 1: Goal Selection -->
+                    <div class="calc-step-section">
+                        <div class="step-header">
+                            <span class="step-number">1</span>
+                            <div>
+                                <h3 class="step-title">Select Your Fitness Goal</h3>
+                                <p class="step-desc">Choose what you want to achieve with your daily nutrition</p>
+                            </div>
+                        </div>
+
+                        <div class="goals-grid">
+                            <!-- Goal 1: Weight Loss -->
+                            <div class="goal-card active" data-goal="loss" id="goal-card-loss">
+                                <div class="goal-icon"><i data-lucide="trending-down" class="icon-inline"></i></div>
+                                <h4 class="goal-name">Weight Loss</h4>
+                                <p class="goal-desc">Burn fat and drop weight with a controlled caloric deficit</p>
+                                <span class="goal-badge">Caloric Deficit</span>
+                            </div>
+
+                            <!-- Goal 2: Maintain -->
+                            <div class="goal-card" data-goal="maintain" id="goal-card-maintain">
+                                <div class="goal-icon"><i data-lucide="scale" class="icon-inline"></i></div>
+                                <h4 class="goal-name">Maintain Weight</h4>
+                                <p class="goal-desc">Keep your current weight stable, optimize vitality &amp; energy</p>
+                                <span class="goal-badge">Caloric Balance</span>
+                            </div>
+
+                            <!-- Goal 3: Weight Gain -->
+                            <div class="goal-card" data-goal="gain" id="goal-card-gain">
+                                <div class="goal-icon"><i data-lucide="trending-up" class="icon-inline"></i></div>
+                                <h4 class="goal-name">Weight Gain</h4>
+                                <p class="goal-desc">Build muscle and add healthy weight with a caloric surplus</p>
+                                <span class="goal-badge">Caloric Surplus</span>
+                            </div>
+                        </div>
+
+                        <!-- Pace Option Selector -->
+                        <div class="pace-wrapper" id="pace-wrapper">
+                            <label class="pace-label">Select Goal Intensity / Target Pace:</label>
+                            <div class="pace-buttons">
+                                <button type="button" class="pace-btn" data-pace="mild">
+                                    <span class="pace-title">Mild</span>
+                                    <span class="pace-subtitle" id="pace-sub-mild">0.25 kg / week (-250 kcal)</span>
+                                </button>
+                                <button type="button" class="pace-btn active" data-pace="moderate">
+                                    <span class="pace-title">Recommended</span>
+                                    <span class="pace-subtitle" id="pace-sub-moderate">0.50 kg / week (-500 kcal)</span>
+                                </button>
+                                <button type="button" class="pace-btn" data-pace="aggressive">
+                                    <span class="pace-title">Aggressive</span>
+                                    <span class="pace-subtitle" id="pace-sub-aggressive">0.75 kg / week (-750 kcal)</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- STEP 2: User Details Form -->
+                    <div class="calc-step-section">
+                        <div class="step-header">
+                            <span class="step-number">2</span>
+                            <div>
+                                <h3 class="step-title">Enter Your Body Metrics</h3>
+                                <p class="step-desc">Used for Mifflin-St Jeor metabolic calculation</p>
+                            </div>
+                        </div>
+
+                        <form id="calc-form" class="calc-form" onsubmit="return false;">
+                            <!-- Form Grid -->
+                            <div class="form-grid">
+                                
+                                <!-- Gender -->
+                                <div class="form-group full-width">
+                                    <label class="form-label">Biological Gender</label>
+                                    <div class="gender-toggle-group">
+                                        <button type="button" class="gender-btn active" data-gender="male" id="gender-male">
+                                            <span><i data-lucide="user" class="icon-inline"></i></span> Male
+                                        </button>
+                                        <button type="button" class="gender-btn" data-gender="female" id="gender-female">
+                                            <span><i data-lucide="user" class="icon-inline"></i></span> Female
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Age -->
+                                <div class="form-group">
+                                    <label class="form-label" for="calc-age">Age (years)</label>
+                                    <div class="input-with-icon">
+                                        <span class="input-icon"><i data-lucide="cake" class="icon-inline"></i></span>
+                                        <input type="number" id="calc-age" class="form-input" min="12" max="110" value="25" placeholder="e.g. 25" required>
+                                    </div>
+                                </div>
+
+                                <!-- Height -->
+                                <div class="form-group">
+                                    <div class="label-with-unit">
+                                        <label class="form-label" for="calc-height">Height</label>
+                                        <div class="unit-toggle-group">
+                                            <button type="button" class="unit-btn active" id="unit-height-cm">cm</button>
+                                            <button type="button" class="unit-btn" id="unit-height-ft">ft/in</button>
+                                        </div>
+                                    </div>
+                                    <div class="input-with-icon" id="height-cm-wrapper">
+                                        <span class="input-icon"><i data-lucide="ruler" class="icon-inline"></i></span>
+                                        <input type="number" id="calc-height" class="form-input" min="80" max="250" value="175" placeholder="e.g. 175">
+                                        <span class="input-unit-tag">cm</span>
+                                    </div>
+                                    <div class="input-dual-row" id="height-ft-wrapper" style="display:none;">
+                                        <div class="input-with-icon">
+                                            <input type="number" id="calc-height-ft" class="form-input" min="3" max="8" value="5" placeholder="ft">
+                                            <span class="input-unit-tag">ft</span>
+                                        </div>
+                                        <div class="input-with-icon">
+                                            <input type="number" id="calc-height-in" class="form-input" min="0" max="11" value="9" placeholder="in">
+                                            <span class="input-unit-tag">in</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Weight -->
+                                <div class="form-group">
+                                    <div class="label-with-unit">
+                                        <label class="form-label" for="calc-weight">Current Weight</label>
+                                        <div class="unit-toggle-group">
+                                            <button type="button" class="unit-btn active" id="unit-weight-kg">kg</button>
+                                            <button type="button" class="unit-btn" id="unit-weight-lbs">lbs</button>
+                                        </div>
+                                    </div>
+                                    <div class="input-with-icon">
+                                        <span class="input-icon"><i data-lucide="scale" class="icon-inline"></i></span>
+                                        <input type="number" id="calc-weight" class="form-input" min="30" max="300" step="0.5" value="70" placeholder="e.g. 70" required>
+                                        <span class="input-unit-tag" id="weight-unit-tag">kg</span>
+                                    </div>
+                                </div>
+
+                            </div>
+
+                            <!-- Activity Level Selection Grid -->
+                            <div class="form-group full-width activity-section">
+                                <label class="form-label">Activity Level</label>
+                                <div class="activity-grid">
+                                    <div class="activity-card" data-activity="1.2">
+                                        <div class="activity-icon"><i data-lucide="sofa" class="icon-inline"></i></div>
+                                        <div class="activity-info">
+                                            <div class="activity-title">Sedentary</div>
+                                            <div class="activity-sub">Little or no exercise</div>
+                                        </div>
+                                    </div>
+                                    <div class="activity-card" data-activity="1.375">
+                                        <div class="activity-icon"><i data-lucide="footprints" class="icon-inline"></i></div>
+                                        <div class="activity-info">
+                                            <div class="activity-title">Lightly Active</div>
+                                            <div class="activity-sub">Exercise 1-3 days/wk</div>
+                                        </div>
+                                    </div>
+                                    <div class="activity-card active" data-activity="1.55">
+                                        <div class="activity-icon"><i data-lucide="activity" class="icon-inline"></i></div>
+                                        <div class="activity-info">
+                                            <div class="activity-title">Moderately Active</div>
+                                            <div class="activity-sub">Exercise 3-5 days/wk</div>
+                                        </div>
+                                    </div>
+                                    <div class="activity-card" data-activity="1.725">
+                                        <div class="activity-icon"><i data-lucide="bike" class="icon-inline"></i></div>
+                                        <div class="activity-info">
+                                            <div class="activity-title">Very Active</div>
+                                            <div class="activity-sub">Exercise 6-7 days/wk</div>
+                                        </div>
+                                    </div>
+                                    <div class="activity-card" data-activity="1.9">
+                                        <div class="activity-icon"><i data-lucide="dumbbell" class="icon-inline"></i></div>
+                                        <div class="activity-info">
+                                            <div class="activity-title">Extra Active</div>
+                                            <div class="activity-sub">Heavy physical work</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Calculate Submit Button -->
+                            <button type="button" class="btn-calculate" id="btn-calculate">
+                                <span class="btn-text">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                                    Calculate My Calorie Target
+                                </span>
+                            </button>
+                        </form>
+                    </div>
+
+                </div>
+
+                <!-- RESULTS DASHBOARD -->
+                <div class="calc-results-section" id="calc-results-section" style="display:none;">
+
+                    <!-- Hero Target Card -->
+                    <div class="target-hero-card">
+                        <div class="target-badge" id="target-goal-badge"><i data-lucide="target" class="icon-inline"></i> Weight Loss Goal</div>
+                        <h3 class="target-card-subtitle">Recommended Daily Target</h3>
+                        
+                        <div class="target-calories-display">
+                            <span class="target-cal-val" id="target-cal-val">2,065</span>
+                            <span class="target-cal-unit">kcal / day</span>
+                        </div>
+
+                        <p class="target-pace-text" id="target-pace-text">
+                            Estimated progress: <strong>-0.5 kg per week</strong> with a 500 kcal daily deficit.
+                        </p>
+
+                        <!-- Sub Metrics Grid -->
+                        <div class="metrics-sub-grid">
+                            <div class="metric-mini-card">
+                                <span class="metric-mini-icon"><i data-lucide="flame" class="icon-inline"></i></span>
+                                <span class="metric-mini-val" id="metric-tdee">2,565</span>
+                                <span class="metric-mini-lbl">Maintenance (TDEE)</span>
+                            </div>
+                            <div class="metric-mini-card">
+                                <span class="metric-mini-icon"><i data-lucide="heart" class="icon-inline"></i></span>
+                                <span class="metric-mini-val" id="metric-bmr">1,655</span>
+                                <span class="metric-mini-lbl">Basal Rate (BMR)</span>
+                            </div>
+                            <div class="metric-mini-card">
+                                <span class="metric-mini-icon"><i data-lucide="bar-chart-2" class="icon-inline"></i></span>
+                                <span class="metric-mini-val" id="metric-bmi">22.9</span>
+                                <span class="metric-mini-lbl" id="metric-bmi-cat">Normal BMI</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recommended Macro Split Grid -->
+                    <div class="calc-card">
+                        <h3 class="section-label">Recommended Daily Macro Split</h3>
+                        <div class="macro-target-grid">
+                            
+                            <!-- Protein -->
+                            <div class="macro-target-card macro-pro">
+                                <div class="macro-target-header">
+                                    <span class="macro-target-icon"><i data-lucide="dumbbell" class="icon-inline"></i></span>
+                                    <span class="macro-target-name">Protein</span>
+                                </div>
+                                <div class="macro-target-val" id="target-pro-g">140g</div>
+                                <div class="macro-target-sub" id="target-pro-cal">560 kcal &middot; 27%</div>
+                                <div class="macro-bar-track">
+                                    <div class="macro-bar-fill pro-fill" id="bar-pro-fill" style="width: 27%;"></div>
+                                </div>
+                            </div>
+
+                            <!-- Carbs -->
+                            <div class="macro-target-card macro-carb">
+                                <div class="macro-target-header">
+                                    <span class="macro-target-icon"><i data-lucide="zap" class="icon-inline"></i></span>
+                                    <span class="macro-target-name">Carbs</span>
+                                </div>
+                                <div class="macro-target-val" id="target-carb-g">232g</div>
+                                <div class="macro-target-sub" id="target-carb-cal">928 kcal &middot; 45%</div>
+                                <div class="macro-bar-track">
+                                    <div class="macro-bar-fill carb-fill" id="bar-carb-fill" style="width: 45%;"></div>
+                                </div>
+                            </div>
+
+                            <!-- Fats -->
+                            <div class="macro-target-card macro-fat">
+                                <div class="macro-target-header">
+                                    <span class="macro-target-icon"><i data-lucide="droplet" class="nut-icon"></i></span>
+                                    <span class="macro-target-name">Healthy Fats</span>
+                                </div>
+                                <div class="macro-target-val" id="target-fat-g">64g</div>
+                                <div class="macro-target-sub" id="target-fat-cal">576 kcal &middot; 28%</div>
+                                <div class="macro-bar-track">
+                                    <div class="macro-bar-fill fat-fill" id="bar-fat-fill" style="width: 28%;"></div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- Smart Personal Advice -->
+                    <div class="calc-card">
+                        <h3 class="section-label">Smart Personal Insights</h3>
+                        <div class="advice-grid">
+                            <div class="advice-item">
+                                <div class="advice-icon"><i data-lucide="droplet" class="icon-inline"></i></div>
+                                <div class="advice-content">
+                                    <div class="advice-title">Daily Hydration Target</div>
+                                    <div class="advice-desc" id="advice-water">Drink at least 2.8 Liters of water daily for optimum metabolism.</div>
+                                </div>
+                            </div>
+                            <div class="advice-item">
+                                <div class="advice-icon"><i data-lucide="salad" class="icon-inline"></i></div>
+                                <div class="advice-content">
+                                    <div class="advice-title">Nutrition Tip for Your Goal</div>
+                                    <div class="advice-desc" id="advice-nutrition">Focus on high-volume, fiber-rich foods like leafy greens and chicken breast.</div>
+                                </div>
+                            </div>
+                            <div class="advice-item">
+                                <div class="advice-icon"><i data-lucide="dumbbell" class="icon-inline"></i></div>
+                                <div class="advice-content">
+                                    <div class="advice-title">Fitness Tip</div>
+                                    <div class="advice-desc" id="advice-workout">Pair this daily budget with regular workouts for maximum results.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Save & Apply CTA -->
+                    <div class="apply-cta-card">
+                        <button type="button" class="btn-save-goal" id="btn-save-goal">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                            Save Goal &amp; Apply to Scanner
+                        </button>
+                    </div>
+
+                </div>
+
+            </section>
+        </div>
+
+        <!-- ======================== -->
+        <!-- BARCODE SCANNER PAGE     -->
+        <!-- ======================== -->
+        <div id="page-barcode" style="display:none;">
+            <section class="barcode-section">
+
+                <!-- Hero -->
+                <div class="barcode-hero">
+                    <h2 class="barcode-title">
+                        Barcode &amp; Product <span class="gradient-text">Health Scanner</span>
+                    </h2>
+                    <p class="barcode-subtitle">
+                        Scan or lookup any packaged food item to instantly reveal its A–F Health Grade, 
+                        nutritional breakdown, NOVA processing group, and ingredient safety alerts.
+                    </p>
+                </div>
+
+                <!-- Scanner & Lookup Box -->
+                <div class="barcode-card">
+                    
+                    <!-- Top Mode Header -->
+                    <div class="barcode-card-header">
+                        <div class="header-icon-ring"><i data-lucide="search" class="icon-inline"></i></div>
+                        <div>
+                            <h3 class="card-main-title">Scan Food Barcode</h3>
+                            <p class="card-sub-title">Point your camera at a barcode or enter barcode digits</p>
+                        </div>
+                    </div>
+
+                    <!-- Camera Scanner Controls -->
+                    <div class="scanner-controls-row" style="text-align: center; margin-bottom: 16px; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+                        <button type="button" id="start-barcode-btn" class="btn-lookup-barcode" style="display: inline-flex; width: auto;">
+                            <i data-lucide="camera" class="icon-inline"></i> Live Camera Scanner
+                        </button>
+                        <button type="button" id="stop-barcode-btn" class="btn-lookup-barcode" style="display: none; width: auto; background: #ef4444;">
+                            <i data-lucide="octagon-alert" class="icon-inline"></i> Stop Camera
+                        </button>
+                        <button type="button" class="btn-lookup-barcode" id="btn-upload-barcode-img" style="display: inline-flex; width: auto; background: var(--gradient-warm);">
+                            <i data-lucide="camera" class="icon-inline"></i> Snap / Upload Barcode Photo
+                        </button>
+                        <input type="file" id="barcode-file-input" accept="image/*" capture="environment" style="position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;">
+                    </div>
+                    <!-- Dedicated temp element for file-based barcode scanning (never used by live scanner) -->
+                    <div id="file-scanner-temp" style="display:none;position:absolute;width:1px;height:1px;overflow:hidden;"></div>
+
+                    <!-- Camera Viewfinder Placeholder -->
+                    <div class="viewfinder-wrapper" id="viewfinder-wrapper">
+                        <div id="barcode-reader" class="barcode-reader-box">
+                            <div class="viewfinder-overlay">
+                                <div class="laser-line"></div>
+                                <div class="viewfinder-corner top-left"></div>
+                                <div class="viewfinder-corner top-right"></div>
+                                <div class="viewfinder-corner bottom-left"></div>
+                                <div class="viewfinder-corner bottom-right"></div>
+                                <div class="viewfinder-text">Position barcode inside camera frame</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Manual Barcode Entry Row -->
+                    <div class="manual-barcode-wrapper">
+                        <label class="form-label" for="barcode-input">Or Enter Barcode Number Manually:</label>
+                        <div class="barcode-input-row">
+                            <div class="input-with-icon">
+                                <span class="input-icon"><i data-lucide="bar-chart-2" class="icon-inline"></i></span>
+                                <input type="text" id="barcode-input" class="form-input" placeholder="e.g. 5000159484695 or 8901058851755" value="5000159484695">
+                            </div>
+                            <button type="button" class="btn-lookup-barcode" id="btn-barcode-lookup">
+                                <span><i data-lucide="search" class="icon-inline"></i></span> Lookup Barcode
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Interactive Demo Grade Tester Chips -->
+                    <div class="demo-grades-wrapper">
+                        <span class="demo-grades-label"><i data-lucide="zap" class="icon-inline"></i> Test Grade Preview (A–F Demo):</span>
+                        <div class="demo-grade-chips">
+                            <button type="button" class="demo-chip grade-a-chip" data-demo-grade="A"> Grade A (Healthy)</button>
+                            <button type="button" class="demo-chip grade-b-chip" data-demo-grade="B"> Grade B (Good)</button>
+                            <button type="button" class="demo-chip grade-c-chip" data-demo-grade="C"> Grade C (Moderate)</button>
+                            <button type="button" class="demo-chip grade-d-chip" data-demo-grade="D"> Grade D (Poor)</button>
+                            <button type="button" class="demo-chip grade-e-chip" data-demo-grade="E"> Grade E (Unhealthy)</button>
+                            <button type="button" class="demo-chip grade-f-chip" data-demo-grade="F"> Grade F (Avoid)</button>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- RESULTS & HEALTH GRADE DASHBOARD -->
+                <div class="barcode-results-section" id="barcode-results-section" style="display:none;">
+
+                    <!-- Health Grade Hero Banner -->
+                    <div class="grade-hero-card grade-e-theme" id="grade-hero-banner">
+                        <div class="grade-badge-circle" id="grade-badge-circle">
+                            <span class="grade-letter" id="grade-letter-display">E</span>
+                        </div>
+                        <div class="grade-hero-info">
+                            <div class="grade-title-row">
+                                <span class="grade-pill-tag" id="grade-pill-tag">Low Nutritional Score</span>
+                                <span class="grade-nova-badge" id="grade-nova-badge">NOVA 4 · Ultra-Processed</span>
+                            </div>
+                            <h3 class="grade-main-title" id="grade-main-title">Grade E — Low Nutritional Quality</h3>
+                            <p class="grade-description" id="grade-description">
+                                High in added sugars, saturated fats, or refined carbs. Consume infrequently as an occasional treat.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Product Details Card -->
+                    <div class="product-info-card">
+                        <div class="product-info-row">
+                            <div class="product-img-wrapper">
+                                <img id="barcode-prod-img" src="https://images.openfoodfacts.org/images/products/500/015/948/4695/front_fr.85.200.jpg" alt="Product image" onerror="this.src='https://images.openfoodfacts.org/images/icons/dist/packaging.svg';">
+                            </div>
+                            <div class="product-text-details">
+                                <span class="prod-brand" id="barcode-prod-brand">Twix / Mars</span>
+                                <h3 class="prod-name" id="barcode-prod-name">Twix Chocolate Ice Cream Bar</h3>
+                                <div class="prod-meta-tags">
+                                    <span class="prod-tag" id="barcode-prod-code">Barcode: 5000159484695</span>
+                                    <span class="prod-tag category-tag" id="barcode-prod-cat">Category: Frozen Desserts &amp; Snacks</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Nutrition Facts Grid -->
+                    <div class="barcode-card">
+                        <h3 class="section-label">Nutritional Value (Per 100g)</h3>
+                        <div class="barcode-nut-grid">
+                            <div class="b-nut-card b-calories">
+                                <div class="b-nut-icon"><i data-lucide="flame" class="icon-inline"></i></div>
+                                <div class="b-nut-val" id="b-nut-cal">348</div>
+                                <div class="b-nut-name">Calories</div>
+                                <div class="b-nut-unit">kcal / 100g</div>
+                            </div>
+                            <div class="b-nut-card b-sugar">
+                                <div class="b-nut-icon"><i data-lucide="candy" class="icon-inline"></i></div>
+                                <div class="b-nut-val" id="b-nut-sugar">31.2g</div>
+                                <div class="b-nut-name">Total Sugar</div>
+                                <span class="b-nut-badge badge-high" id="badge-sugar">High Sugar</span>
+                            </div>
+                            <div class="b-nut-card b-fat">
+                                <div class="b-nut-icon"><i data-lucide="droplet" class="nut-icon"></i></div>
+                                <div class="b-nut-val" id="b-nut-fat">18.5g</div>
+                                <div class="b-nut-name">Total Fat</div>
+                                <span class="b-nut-badge badge-mod" id="badge-fat">Moderate Fat</span>
+                            </div>
+                            <div class="b-nut-card b-satfat">
+                                <div class="b-nut-icon"><i data-lucide="beef" class="icon-inline"></i></div>
+                                <div class="b-nut-val" id="b-nut-satfat">11.4g</div>
+                                <div class="b-nut-name">Saturated Fat</div>
+                                <span class="b-nut-badge badge-high" id="badge-satfat">High Sat Fat</span>
+                            </div>
+                            <div class="b-nut-card b-salt">
+                                <div class="b-nut-icon"><i data-lucide="flask-conical" class="icon-inline"></i></div>
+                                <div class="b-nut-val" id="b-nut-salt">0.24g</div>
+                                <div class="b-nut-name">Sodium / Salt</div>
+                                <span class="b-nut-badge badge-low" id="badge-salt">Low Salt</span>
+                            </div>
+                            <div class="b-nut-card b-protein">
+                                <div class="b-nut-icon"><i data-lucide="dumbbell" class="icon-inline"></i></div>
+                                <div class="b-nut-val" id="b-nut-pro">3.6g</div>
+                                <div class="b-nut-name">Protein</div>
+                                <div class="b-nut-unit">g / 100g</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Ingredient Alerts & Warnings -->
+                    <div class="barcode-card">
+                        <h3 class="section-label">Ingredient Health &amp; Safety Alerts</h3>
+                        <div class="warnings-list" id="warnings-list">
+                            <div class="warning-alert-item alert-danger">
+                                <span class="alert-icon"><i data-lucide="alert-triangle" class="icon-inline"></i></span>
+                                <div class="alert-info">
+                                    <div class="alert-title">High Sugar Content</div>
+                                    <div class="alert-desc">Contains 31.2g of sugar per 100g, exceeding recommended daily intake limits for added sugar.</div>
+                                </div>
+                            </div>
+                            <div class="warning-alert-item alert-warning">
+                                <span class="alert-icon"><i data-lucide="tree-palm" class="icon-inline"></i></span>
+                                <div class="alert-info">
+                                    <div class="alert-title">Contains Palm Fat &amp; Palm Kernel Oil</div>
+                                    <div class="alert-desc">High in saturated fatty acids that can raise LDL cholesterol level when consumed frequently.</div>
+                                </div>
+                            </div>
+                            <div class="warning-alert-item alert-info">
+                                <span class="alert-icon"><i data-lucide="beaker" class="icon-inline"></i></span>
+                                <div class="alert-info">
+                                    <div class="alert-title">Food Additives Detected</div>
+                                    <div class="alert-desc">Contains 8 food additives including emulsifiers (E322, E471) and colorants (E150a).</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Bar -->
+                    <div class="apply-cta-card">
+                        <button type="button" class="btn-scan-again" id="btn-scan-again">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                            Scan Another Product
+                        </button>
+                    </div>
+
+                </div>
+
+            </section>
+        </div>
+
+       <!-- ======================== -->
+<!-- ABOUT PAGE -->
+<!-- ======================== -->
+<div id="page-about" style="display:none;">
+    <section class="about-section">
+
+        <!-- HERO -->
+        <div class="about-hero">
+            <div class="about-badge">
+                <i data-lucide="sparkles" class="icon-inline"></i>
+                AI-Powered Nutrition Assistant
+            </div>
+
+            <h2 class="about-title">
+                About <span class="gradient-text">NutriScan AI</span>
+            </h2>
+
+            <p class="about-desc">
+                NutriScan AI is an intelligent food analysis platform that combines
+                deep learning, computer vision, nutrition data, and generative AI
+                to help users understand what they eat.
+            </p>
+
+            <p class="about-desc">
+                Simply upload a food image and NutriScan AI identifies the food,
+                estimates its typical serving weight, calculates nutritional values,
+                and provides personalized nutrition guidance through an AI assistant.
+            </p>
+        </div>
+
+
+        <!-- STATS -->
+        <div class="stats-grid">
+
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i data-lucide="utensils"></i>
+                </div>
+                <div class="stat-value">37</div>
+                <div class="stat-label">Food Classes</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i data-lucide="brain"></i>
+                </div>
+                <div class="stat-value">AI</div>
+                <div class="stat-label">Powered Analysis</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i data-lucide="scale"></i>
+                </div>
+                <div class="stat-value">Smart</div>
+                <div class="stat-label">Weight Estimation</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i data-lucide="zap"></i>
+                </div>
+                <div class="stat-value">Fast</div>
+                <div class="stat-label">Food Analysis</div>
+            </div>
+
+        </div>
+
+
+        <!-- HOW IT WORKS -->
+        <div class="about-card">
+
+            <h3 class="section-label">
+                <i data-lucide="workflow" class="icon-inline"></i>
+                How NutriScan AI Works
+            </h3>
+
+            <div class="model-grid">
+
+                <div class="model-card">
+                    <div class="model-icon">
+                        <i data-lucide="image" class="icon-inline"></i>
+                    </div>
+
+                    <div class="model-name">1. Upload</div>
+
+                    <div class="model-detail">
+                        Upload a clear image of your food.
+                    </div>
+                </div>
+
+
+                <div class="model-card">
+                    <div class="model-icon">
+                        <i data-lucide="scan-search" class="icon-inline"></i>
+                    </div>
+
+                    <div class="model-name">2. Identify</div>
+
+                    <div class="model-detail">
+                        The deep learning model analyzes the image and predicts
+                        the food category.
+                    </div>
+                </div>
+
+
+                <div class="model-card">
+                    <div class="model-icon">
+                        <i data-lucide="scale" class="icon-inline"></i>
+                    </div>
+
+                    <div class="model-name">3. Estimate</div>
+
+                    <div class="model-detail">
+                        NutriScan estimates a typical serving weight and
+                        scales the nutrition values accordingly.
+                    </div>
+                </div>
+
+
+                <div class="model-card">
+                    <div class="model-icon">
+                        <i data-lucide="message-circle" class="icon-inline"></i>
+                    </div>
+
+                    <div class="model-name">4. Ask AI</div>
+
+                    <div class="model-detail">
+                        Ask nutrition-related questions and receive
+                        AI-generated guidance.
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- SUPPORTED FOODS -->
+        <div class="about-card">
+
+            <h3 class="section-label">
+                <i data-lucide="apple" class="icon-inline"></i>
+                Supported Foods
+            </h3>
+
+            <p class="about-card-desc">
+                NutriScan AI can analyze a growing collection of fruits,
+                vegetables, Indian foods, meals, snacks, and other common foods.
+            </p>
+
+            <div class="food-tags" id="food-tags"></div>
+
+        </div>
+
+
+        <!-- AI FEATURES -->
+        <div class="about-card">
+
+            <h3 class="section-label">
+                <i data-lucide="bot" class="icon-inline"></i>
+                AI Features
+            </h3>
+
+            <div class="model-grid">
+
+                <div class="model-card">
+                    <div class="model-icon">
+                        <i data-lucide="brain" class="icon-inline"></i>
+                    </div>
+
+                    <div class="model-name">Food Classification</div>
+
+                    <div class="model-detail">
+                        Deep learning based image classification using
+                        a ResNet18 model trained for food recognition.
+                    </div>
+
+                    <div class="model-tag">Computer Vision</div>
+                </div>
+
+
+                <div class="model-card">
+                    <div class="model-icon">
+                        <i data-lucide="scale" class="icon-inline"></i>
+                    </div>
+
+                    <div class="model-name">Weight Estimation</div>
+
+                    <div class="model-detail">
+                        Typical serving weights are used to estimate the
+                        food quantity and calculate total nutrition.
+                    </div>
+
+                    <div class="model-tag">Smart Estimation</div>
+                </div>
+
+
+                <div class="model-card">
+                    <div class="model-icon">
+                        <i data-lucide="activity" class="icon-inline"></i>
+                    </div>
+
+                    <div class="model-name">Nutrition Analysis</div>
+
+                    <div class="model-detail">
+                        Nutrition values are dynamically scaled according
+                        to the estimated or manually entered weight.
+                    </div>
+
+                    <div class="model-tag">Nutrition AI</div>
+                </div>
+
+
+                <div class="model-card">
+                    <div class="model-icon">
+                        <i data-lucide="message-square-ai" class="icon-inline"></i>
+                    </div>
+
+                    <div class="model-name">NutriScan AI Assistant</div>
+
+                    <div class="model-detail">
+                        Ask questions about the detected food and receive
+                        practical nutrition-focused answers using a local LLM.
+                    </div>
+
+                    <div class="model-tag">Generative AI</div>
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- TECHNOLOGY -->
+        <div class="about-card">
+
+            <h3 class="section-label">
+                <i data-lucide="code-2" class="icon-inline"></i>
+                Technology Stack
+            </h3>
+
+            <div class="tech-tags">
+
+                <span class="tech-tag">Python</span>
+
+                <span class="tech-tag">PyTorch</span>
+
+                <span class="tech-tag">torchvision</span>
+
+                <span class="tech-tag">ResNet18</span>
+
+                <span class="tech-tag">FastAPI</span>
+
+                <span class="tech-tag">OpenCV</span>
+
+                <span class="tech-tag">Ollama</span>
+
+                <span class="tech-tag">Llama 3.2</span>
+
+                <span class="tech-tag">HTML</span>
+
+                <span class="tech-tag">CSS</span>
+
+                <span class="tech-tag">JavaScript</span>
+
+                <span class="tech-tag">Transfer Learning</span>
+
+            </div>
+
+        </div>
+
+
+        <!-- PROJECT GOAL -->
+        <div class="about-card about-final-card">
+
+            <div class="model-icon">
+                <i data-lucide="heart-pulse" class="icon-inline"></i>
+            </div>
+
+            <h3 class="section-label">
+                Built to Make Food Understanding Simple
+            </h3>
+
+            <p class="about-card-desc">
+                NutriScan AI brings computer vision and generative AI together
+                to make nutritional information easier to understand.
+                Instead of manually searching for every food item, users can
+                upload an image, view its nutritional information, and interact
+                with an AI assistant in one place.
+            </p>
+
+        </div>
+
+    </section>
+</div>
+        <!-- ======================== -->
+        <!-- HISTORY PAGE              -->
+        <!-- ======================== -->
+        <div id="page-history" style="display:none;">
+            <section class="history-section">
+                <div class="history-hero">
+                    <h2 class="history-title">Scan <span class="gradient-text">History</span></h2>
+                    <p class="history-desc">
+                        Your past food scans with nutrition data — track everything you've analyzed.
+                    </p>
+                </div>
+
+                <!-- Stats Summary -->
+                <div class="history-stats-row" id="history-stats-row">
+                    <div class="history-stat-pill">
+                        <span class="history-stat-icon"><i data-lucide="bar-chart-2" class="icon-inline"></i></span>
+                        <span class="history-stat-val" id="hist-total-scans">0</span>
+                        <span class="history-stat-lbl">Scans</span>
+                    </div>
+                    <div class="history-stat-pill">
+                        <span class="history-stat-icon"><i data-lucide="flame" class="icon-inline"></i></span>
+                        <span class="history-stat-val" id="hist-total-cal">0</span>
+                        <span class="history-stat-lbl">Total kcal</span>
+                    </div>
+                    <div class="history-stat-pill">
+                        <span class="history-stat-icon"><i data-lucide="medal" class="icon-inline"></i></span>
+                        <span class="history-stat-val" id="hist-top-food">—</span>
+                        <span class="history-stat-lbl">Most Scanned</span>
+                    </div>
+                    <div class="history-stat-pill">
+                        <span class="history-stat-icon"><i data-lucide="target" class="icon-inline"></i></span>
+                        <span class="history-stat-val" id="hist-avg-conf">—</span>
+                        <span class="history-stat-lbl">Avg Confidence</span>
+                    </div>
+                </div>
+
+                <!-- Clear History -->
+                <div class="history-toolbar">
+                    <button class="btn-clear-history" id="btn-clear-history">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        Clear All
+                    </button>
+                </div>
+
+                <!-- Timeline -->
+                <div class="history-timeline" id="history-timeline">
+                    <!-- Cards injected by JS -->
+                </div>
+
+                <!-- Empty state -->
+                <div class="history-empty" id="history-empty" style="display:none;">
+                    <div class="empty-icon"><i data-lucide="search-x" class="icon-inline"></i></div>
+                    <h3 class="empty-title">No scans yet</h3>
+                    <p class="empty-desc">Classify your first food to see it appear here!</p>
+                    <button class="btn-empty-cta" id="btn-go-classify">Start Classifying</button>
+                </div>
+
+            </section>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>NutriScan AI &copy; 2026</p>
+    </footer>
+
+    <!-- Split JS modules (load order matters) -->
+    <script src="js/config.js"></script>
+    <script src="js/state.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/navigation.js"></script>
+    <script src="js/charts.js"></script>
+    <script src="js/chat.js"></script>
+    <script src="js/classify.js"></script>
+    <script src="js/history.js"></script>
+    <script src="js/calculator.js"></script>
+    <script src="js/barcode.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>

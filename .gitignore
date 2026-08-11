@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Environment variables / API keys
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
+
+# Datasets
+data/
+datasets/
+data_backup/
+
+# Trained model files
+*.pth
+*.pt
+*.onnx
+
+# Certificates / secrets
+.certs/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# SQLite database
+*.db
+*.sqlite
+*.sqlite3
