@@ -26,19 +26,14 @@ export function AppProvider({ children }) {
     return null;
   };
 
-  // Load tracked meals from localStorage
-  const loadTodayLoggedCalories = () => {
-    try {
-      const raw = localStorage.getItem(TRACKED_MEALS_KEY);
-      if (!raw) return 0;
-      const meals = JSON.parse(raw);
-      const todayStr = new Date().toISOString().split('T')[0];
-      return meals
-        .filter(m => m.date === todayStr)
-        .reduce((sum, m) => sum + (m.calories || 0), 0);
-    } catch (e) {
-      return 0;
-    }
+  // In-memory tracked meals (resets on reload)
+  const [trackedMeals, setTrackedMeals] = useState([]);
+  
+  const getTodayCalories = (meals) => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    return meals
+      .filter(m => m.date === todayStr)
+      .reduce((sum, m) => sum + (m.calories || 0), 0);
   };
 
   // Default user goal profile
@@ -79,7 +74,7 @@ export function AppProvider({ children }) {
   });
 
   // Today's logged calories
-  const [todayLoggedCalories, setTodayLoggedCalories] = useState(loadTodayLoggedCalories);
+  const [todayLoggedCalories, setTodayLoggedCalories] = useState(0);
 
   // Page state
   const [activePage, setActivePage] = useState('classify');
@@ -121,21 +116,12 @@ export function AppProvider({ children }) {
       timestamp: new Date().toISOString(),
     };
 
-    try {
-      const raw = localStorage.getItem(TRACKED_MEALS_KEY);
-      const meals = raw ? JSON.parse(raw) : [];
-      meals.push(meal);
-      localStorage.setItem(TRACKED_MEALS_KEY, JSON.stringify(meals));
+    const newMeals = [...trackedMeals, meal];
+    setTrackedMeals(newMeals);
+    setTodayLoggedCalories(getTodayCalories(newMeals));
 
-      const newTodayCalories = loadTodayLoggedCalories();
-      setTodayLoggedCalories(newTodayCalories);
-
-      // Show success toast
-      showToast(`Tracked ${calories} kcal for ${currentData.food}!`, 'success');
-    } catch (e) {
-      console.error('Error tracking meal:', e);
-      showToast('Error tracking meal. Please try again.', 'error');
-    }
+    // Show success toast
+    showToast(`Tracked ${calories} kcal for ${currentData.food}!`, 'success');
   };
 
   // Save goal profile

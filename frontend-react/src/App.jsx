@@ -4,7 +4,6 @@ import Toast from './components/Toast';
 import ClassifyPage from './pages/ClassifyPage';
 import CalculatorPage from './pages/CalculatorPage';
 import BarcodePage from './pages/BarcodePage';
-import HistoryPage from './pages/HistoryPage';
 import AboutPage from './pages/AboutPage';
 import './index.css';
 
@@ -19,8 +18,6 @@ function App() {
         return <CalculatorPage />;
       case 'barcode':
         return <BarcodePage />;
-      case 'history':
-        return <HistoryPage />;
       case 'about':
         return <AboutPage />;
       default:

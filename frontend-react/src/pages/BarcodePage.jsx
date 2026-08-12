@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, Camera, CheckCircle2, Image, PackageSearch, QrCode, RotateCcw, Search, ShieldCheck, StopCircle } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { AlertTriangle, Camera, CheckCircle2, Copy, Image, PackageSearch, QrCode, RotateCcw, Search, ShieldCheck, StopCircle } from 'lucide-react';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { useApp } from '../context/AppContext';
 import { GRADE_INFO, NOVA_LABELS } from '../lib/config';
@@ -21,16 +21,19 @@ export default function BarcodePage() {
   const { showToast } = useApp();
   const [barcodeInput, setBarcodeInput] = useState('');
   const [detectedCode, setDetectedCode] = useState('');
+  const [codeType, setCodeType] = useState('');
   const [scannerRunning, setScannerRunning] = useState(false);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [product, setProduct] = useState(null);
   const [showResults, setShowResults] = useState(false);
   const [cameraError, setCameraError] = useState('');
+  const [copied, setCopied] = useState(false);
   const scannerRef = useRef(null);
   const fileInputRef = useRef(null);
   const hasScannedRef = useRef(false);
+  const scanCountRef = useRef(0);
 
-  const stopScanner = async () => {
+  const stopScanner = useCallback(async () => {
     const scanner = scannerRef.current;
     if (!scanner) {
       setScannerRunning(false);
@@ -45,24 +48,45 @@ export default function BarcodePage() {
 
     scannerRef.current = null;
     setScannerRunning(false);
-  };
+  }, []);
 
-  const handleDetectedCode = async (code) => {
-    if (!code || hasScannedRef.current) return;
-    hasScannedRef.current = true;
-    setDetectedCode(code);
-    setBarcodeInput(code);
-    showToast(`Code detected: ${code}`, 'success');
-    await stopScanner();
-    lookupBarcode(code);
-  };
+  const detectCodeType = useCallback((code) => {
+    if (!code) return 'Unknown';
+    if (/^[A-Za-z0-9+/=]+$/.test(code) && code.length > 20) return 'QR Code';
+    if (/^\d{13}$/.test(code)) return 'EAN-13';
+    if (/^\d{8}$/.test(code)) return 'EAN-8';
+    if (/^\d{12}$/.test(code)) return 'UPC-A';
+    if (/^\d{6}$/.test(code)) return 'UPC-E';
+    if (/^[A-Za-z0-9\-._~+/]+$/.test(code)) return 'CODE-128';
+    if (/^[A-Z0-9\-. $/+%]+$/.test(code)) return 'CODE-39';
+    if (/^\d{14}$/.test(code)) return 'ITF';
+    return 'Barcode';
+  }, []);
 
-  const startScanner = async () => {
+  const handleDetectedCode = useCallback((code, format) => {
+    if (!code) return;
+    
+    scanCountRef.current += 1;
+    if (scanCountRef.current === 1) {
+      hasScannedRef.current = true;
+      const detectedType = format || detectCodeType(code);
+      setDetectedCode(code);
+      setCodeType(detectedType);
+      setBarcodeInput(code);
+      showToast(`${detectedType} detected: ${code}`, 'success');
+      stopScanner();
+      lookupBarcode(code);
+    }
+  }, [showToast, stopScanner, detectCodeType]);
+
+  const startScanner = useCallback(async () => {
     setCameraError('');
     setShowResults(false);
     setProduct(null);
     setDetectedCode('');
+    setCodeType('');
     hasScannedRef.current = false;
+    scanCountRef.current = 0;
 
     if (!window.isSecureContext && window.location.hostname !== 'localhost') {
       setCameraError('Camera access needs HTTPS or localhost. Use localhost while testing on your computer.');
@@ -86,7 +110,7 @@ export default function BarcodePage() {
       await scanner.start(
         { facingMode: 'environment' },
         {
-          fps: 24,
+          fps: 30,
           qrbox: { width: qrbox, height: Math.floor(qrbox * 0.62) },
           aspectRatio: 1.777,
           disableFlip: true,
@@ -96,7 +120,10 @@ export default function BarcodePage() {
             height: { ideal: 720 },
           },
         },
-        (decodedText) => handleDetectedCode(decodedText),
+        (decodedText, decodedResult) => {
+          const format = decodedResult?.result?.format?.formatName || null;
+          handleDetectedCode(decodedText, format);
+        },
         () => {}
       );
 
@@ -108,18 +135,28 @@ export default function BarcodePage() {
       showToast('Could not start camera.', 'error');
       await stopScanner();
     }
-  };
+  }, [showToast, stopScanner, handleDetectedCode]);
 
   const scanFromFile = async (file) => {
     if (!file) return;
     hasScannedRef.current = false;
+    scanCountRef.current = 0;
     showToast('Scanning image...', 'info');
 
     try {
-      const scanner = new Html5Qrcode(FILE_SCANNER_ID, { formatsToSupport: FORMATS, verbose: false });
-      const code = await scanner.scanFile(file, false);
+      const scanner = new Html5Qrcode(FILE_SCANNER_ID, { 
+        formatsToSupport: FORMATS, 
+        verbose: false,
+        experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+      });
+      // Pass false to avoid rendering image in DOM, which fails if container is hidden
+      const result = await scanner.scanFile(file, false);
       await scanner.clear();
-      if (code) handleDetectedCode(code);
+      if (result) {
+        const code = typeof result === 'string' ? result : result.decodedText;
+        const format = result?.format?.formatName || detectCodeType(code);
+        handleDetectedCode(code, format);
+      }
     } catch (error) {
       console.error('File scan failed:', error);
       showToast('No QR/barcode found in image.', 'error');
@@ -128,7 +165,7 @@ export default function BarcodePage() {
     }
   };
 
-  const lookupBarcode = async (code) => {
+  const lookupBarcode = useCallback(async (code) => {
     const barcode = String(code || barcodeInput).trim();
     if (!barcode) {
       showToast('Enter or scan a code first.', 'error');
@@ -166,38 +203,34 @@ export default function BarcodePage() {
     } finally {
       setLookupLoading(false);
     }
-  };
-
-  const saveBarcodeToHistory = (prod, code) => {
-    try {
-      const history = JSON.parse(localStorage.getItem('food_history') || '[]');
-      const displayName = [prod.product_name || 'Unknown Product', prod.brands].filter(Boolean).join(' · ');
-      history.unshift({
-        id: `scan_${Date.now()}`,
-        created_at: new Date().toISOString(),
-        food: `Barcode: ${displayName}`,
-        confidence: 100,
-        calories: prod.nutriments?.['energy-kcal_100g'] ?? null,
-        image_data: prod.image_url || null,
-        isBarcode: true,
-        barcode: code,
-        grade: prod.nutriscore_grade ? prod.nutriscore_grade.toUpperCase() : 'N/A',
-      });
-      localStorage.setItem('food_history', JSON.stringify(history.slice(0, 30)));
-    } catch (_) {}
-  };
+  }, [barcodeInput, showToast]);
 
   const resetScanner = async () => {
     await stopScanner();
     setProduct(null);
     setShowResults(false);
     setDetectedCode('');
+    setCodeType('');
     setBarcodeInput('');
     setCameraError('');
+    setCopied(false);
     hasScannedRef.current = false;
+    scanCountRef.current = 0;
   };
 
-  useEffect(() => () => { stopScanner(); }, []);
+  const copyToClipboard = async () => {
+    if (!detectedCode) return;
+    try {
+      await navigator.clipboard.writeText(detectedCode);
+      setCopied(true);
+      showToast('Code copied to clipboard', 'success');
+      setTimeout(() => setCopied(false), 2000);
+    } catch (_) {
+      showToast('Failed to copy', 'error');
+    }
+  };
+
+  useEffect(() => () => { stopScanner(); }, [stopScanner]);
 
   const nuts = product?.nutriments || {};
   const grade = (product?.nutriscore_grade || 'e').toLowerCase();
@@ -265,12 +298,22 @@ export default function BarcodePage() {
               )}
 
               <div className="detected-code-card">
-                <span>Detected Code</span>
-                <strong>{detectedCode || 'Waiting for scan...'}</strong>
+                <div className="detected-code-header">
+                  <span>Detected Code</span>
+                  {codeType && <span className="code-type-badge">{codeType}</span>}
+                </div>
+                <div className="detected-code-value">
+                  <strong>{detectedCode || 'Waiting for scan...'}</strong>
+                  {detectedCode && (
+                    <button type="button" className="copy-btn" onClick={copyToClipboard} title="Copy to clipboard">
+                      {copied ? <CheckCircle2 size={16} /> : <Copy size={16} />}
+                    </button>
+                  )}
+                </div>
               </div>
 
               <input ref={fileInputRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => scanFromFile(e.target.files?.[0])} />
-              <div id={FILE_SCANNER_ID} style={{ display: 'none' }} />
+              <div id={FILE_SCANNER_ID} style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: '300px', height: '300px', zIndex: -100 }} />
             </div>
 
             <div className="manual-panel clean-card">

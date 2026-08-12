@@ -12,8 +12,6 @@ from nutrition import nutrition
 from average_weights import average_weights
 from ai_service import generate_ai_advice
 
-# Database
-from database import init_database, save_scan, get_history
 
 
 # ==========================================
@@ -26,12 +24,6 @@ app = FastAPI(
     version="1.0"
 )
 
-
-# ==========================================
-# Initialize database
-# ==========================================
-
-init_database()
 
 
 # ==========================================
@@ -247,21 +239,6 @@ async def predict(file: UploadFile = File(...)):
 
 
     # ======================================
-    # Save scan to database
-    # ======================================
-
-    save_scan(
-        food=food,
-        confidence=round(confidence, 2),
-        weight_g=estimated_weight,
-        calories=estimated_nutrition["calories"],
-        protein=estimated_nutrition["protein"],
-        carbs=estimated_nutrition["carbs"],
-        fat=estimated_nutrition["fat"],
-        fiber=estimated_nutrition["fiber"]
-    )
-
-    # ======================================
     # Response
     # ======================================
 
@@ -344,56 +321,4 @@ def ai_advice(request: AIAdviceRequest):
 
         "answer": answer
     }
-
-# ==========================================
-# Scan history endpoint
-# ==========================================
-
-@app.get("/history")
-def history():
-
-    return {
-        "history": get_history()
-    }
-
-
-# ==========================================
-# Delete single scan
-# ==========================================
-
-@app.delete("/history/{scan_id}")
-def delete_scan_endpoint(scan_id: int):
-
-    from database import get_connection
-
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM scan_history WHERE id = ?", (scan_id,))
-    conn.commit()
-    deleted = cursor.rowcount
-    conn.close()
-
-    if deleted == 0:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=404, detail="Scan not found")
-
-    return {"message": "Scan deleted", "id": scan_id}
-
-
-# ==========================================
-# Clear all history
-# ==========================================
-
-@app.delete("/history")
-def clear_history():
-
-    from database import get_connection
-
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM scan_history")
-    conn.commit()
-    deleted = cursor.rowcount
-    conn.close()
-
-    return {"message": "History cleared", "deleted": deleted}
+

@@ -5,7 +5,6 @@ const navItems = [
   { id: 'classify', label: 'Classify' },
   { id: 'calculator', label: 'Calculator' },
   { id: 'barcode', label: 'Barcode' },
-  { id: 'history', label: 'History' },
   { id: 'about', label: 'About' },
 ];
 
