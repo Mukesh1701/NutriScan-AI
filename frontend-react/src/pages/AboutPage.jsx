@@ -58,8 +58,8 @@ export default function AboutPage() {
         </div>
 
         <div className="about-footer">
-          <p>Built with care for healthier eating habits.</p>
-          <p className="about-version">Version 2.0.0 — React Edition</p>
+          <p>NutriScan AI &copy; 2026</p>
+          
         </div>
       </section>
     </div>
