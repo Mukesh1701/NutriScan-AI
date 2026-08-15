@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: nutriscan-ml-api
+    runtime: python
+    rootDir: ml-service/inference
+    buildCommand: pip install -r ../requirements.txt
+    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false   # Set this manually in the Render dashboard → Environment tab
+    plan: free

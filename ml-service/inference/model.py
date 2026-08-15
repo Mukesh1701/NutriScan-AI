@@ -5,7 +5,7 @@ import os
 
 
 # =========================
-# Device
+# Device — always CPU on Render
 # =========================
 
 device = torch.device(
@@ -14,26 +14,39 @@ device = torch.device(
 
 print("Device:", device)
 
-if torch.cuda.is_available():
-    print("GPU:", torch.cuda.get_device_name(0))
-
 
 # =========================
 # Model path
 # =========================
 
-BASE_DIR = os.path.dirname(
-    os.path.dirname(
-        os.path.dirname(
-            os.path.abspath(__file__)
-        )
-    )
-)
+# Walk up from this file to find best_model.pth
+# File lives at: ml-service/inference/model.py
+# Model lives at: best_model.pth (repo root)  OR  ml-service/best_model.pth
+# We search both so it works locally AND on Render.
 
-MODEL_PATH = os.path.join(
-    BASE_DIR,
-    "best_model.pth"
-)
+_this_dir = os.path.dirname(os.path.abspath(__file__))
+
+_candidate_paths = [
+    os.path.join(_this_dir, "best_model.pth"),                          # same dir
+    os.path.join(_this_dir, "..", "best_model.pth"),                    # ml-service/
+    os.path.join(_this_dir, "..", "..", "best_model.pth"),              # repo root
+]
+
+MODEL_PATH = None
+for _path in _candidate_paths:
+    if os.path.isfile(_path):
+        MODEL_PATH = os.path.abspath(_path)
+        break
+
+if MODEL_PATH is None:
+    raise FileNotFoundError(
+        "Could not find best_model.pth. "
+        "Searched: " + str([os.path.abspath(p) for p in _candidate_paths]) + "\n"
+        "On Render: place best_model.pth in ml-service/inference/ "
+        "and set the Root Directory to ml-service/inference in the Render dashboard."
+    )
+
+print("Loading model from:", MODEL_PATH)
 
 
 # =========================
@@ -42,11 +55,11 @@ MODEL_PATH = os.path.join(
 
 checkpoint = torch.load(
     MODEL_PATH,
-    map_location=device
+    map_location=device,
+    weights_only=False   # needed because checkpoint contains class list (non-tensor)
 )
 
 classes = checkpoint["classes"]
-
 
 print("Number of classes:", len(classes))
 

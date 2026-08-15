@@ -65,8 +65,19 @@ def home():
         "message": "NutriScan AI API is running",
         "model": "ResNet18",
         "classes": len(classes),
-        "ai": "Llama 3.2 3B via Ollama"
+        "ai": "Gemini 1.5 Flash"
     }
+
+
+# ==========================================
+# Health / Keep-Alive Endpoint
+# (UptimeRobot pings this every 14 min to
+#  prevent Render free tier from sleeping)
+# ==========================================
+
+@app.get("/ping")
+def ping():
+    return {"status": "ok"}
 
 
 # ==========================================

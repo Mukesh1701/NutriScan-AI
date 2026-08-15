@@ -32,6 +32,7 @@ export default function BarcodePage() {
   const fileInputRef = useRef(null);
   const hasScannedRef = useRef(false);
   const scanCountRef = useRef(0);
+  const barcodeInputRef = useRef('');
 
   const stopScanner = useCallback(async () => {
     const scanner = scannerRef.current;
@@ -165,8 +166,12 @@ export default function BarcodePage() {
     }
   };
 
+  // Keep ref in sync with state so lookupBarcode always reads fresh value
+  useEffect(() => { barcodeInputRef.current = barcodeInput; }, [barcodeInput]);
+
   const lookupBarcode = useCallback(async (code) => {
-    const barcode = String(code || barcodeInput).trim();
+    // Prefer the explicitly passed code, then the ref (always fresh), then state
+    const barcode = String(code ?? barcodeInputRef.current ?? barcodeInput).trim();
     if (!barcode) {
       showToast('Enter or scan a code first.', 'error');
       return;
@@ -203,7 +208,7 @@ export default function BarcodePage() {
     } finally {
       setLookupLoading(false);
     }
-  }, [barcodeInput, showToast]);
+  }, [showToast]);
 
   const resetScanner = async () => {
     await stopScanner();

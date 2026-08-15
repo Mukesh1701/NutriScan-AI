@@ -27,6 +27,7 @@ export default function CalculatorPage() {
   const [heightFt, setHeightFt] = useState(5);
   const [heightIn, setHeightIn] = useState(9);
   const [weight, setWeight] = useState(70);
+  const [weightRaw, setWeightRaw] = useState('70');
   const [showResults, setShowResults] = useState(false);
 
   const [results, setResults] = useState(null);
@@ -347,8 +348,20 @@ export default function CalculatorPage() {
                       min={30}
                       max={300}
                       step={0.5}
-                      value={weight}
-                      onChange={(e) => setWeight(parseFloat(e.target.value) || 70)}
+                      value={weightRaw}
+                      onChange={(e) => {
+                        setWeightRaw(e.target.value);
+                        const parsed = parseFloat(e.target.value);
+                        if (!isNaN(parsed) && parsed > 0) setWeight(parsed);
+                      }}
+                      onBlur={() => {
+                        if (!weight || isNaN(weight)) {
+                          setWeight(70);
+                          setWeightRaw('70');
+                        } else {
+                          setWeightRaw(String(weight));
+                        }
+                      }}
                     />
                     <span className="input-unit-tag">{calcWeightUnit}</span>
                   </div>

@@ -2,7 +2,9 @@ fastapi
 uvicorn[standard]
 python-multipart
 pillow
-torch
-torchvision
+# CPU-only torch wheels — much smaller than default CUDA build (~250MB vs ~800MB)
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.3.1+cpu
+torchvision==0.18.1+cpu
 pydantic
-ollama
+google-generativeai

@@ -1,8 +1,8 @@
-tensorflow>=2.15
-matplotlib
-seaborn
-scikit-learn
-kaggle
-Pillow
-pandas
-numpy
+fastapi
+uvicorn[standard]
+python-multipart
+pillow
+torch
+torchvision
+pydantic
+ollama

@@ -1,4 +1,14 @@
-import ollama
+import os
+import google.generativeai as genai
+
+
+# =========================
+# Configure Gemini
+# =========================
+
+genai.configure(api_key=os.environ.get("GEMINI_API_KEY", ""))
+
+_gemini_model = genai.GenerativeModel("gemini-1.5-flash")
 
 
 def generate_ai_advice(
@@ -39,14 +49,8 @@ disease, medication, or treatment, recommend
 consulting a qualified healthcare professional.
 """
 
-    response = ollama.chat(
-        model="llama3.2:3b",
-        messages=[
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ]
-    )
-
-    return response["message"]["content"]
+    try:
+        response = _gemini_model.generate_content(prompt)
+        return response.text
+    except Exception as e:
+        return f"AI advice temporarily unavailable. Please try again later. (Error: {str(e)})"
