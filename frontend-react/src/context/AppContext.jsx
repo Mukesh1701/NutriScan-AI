@@ -77,7 +77,7 @@ export function AppProvider({ children }) {
   const [todayLoggedCalories, setTodayLoggedCalories] = useState(0);
 
   // Page state
-  const [activePage, setActivePage] = useState('classify');
+  const [activePage, setActivePage] = useState('barcode');
 
   // Toast/error state
   const [toast, setToast] = useState({
