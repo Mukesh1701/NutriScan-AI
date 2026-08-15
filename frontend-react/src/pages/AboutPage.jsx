@@ -60,13 +60,13 @@ export default function AboutPage() {
         <div className="about-footer">
           <p>NutriScan AI &copy; 2026</p>
           <p className="creator-credit">
-            Created by <span className="creator-name">Your Name</span>
+            Created by <span className="creator-name">Veeravalli Mukesh</span>
           </p>
           <div className="creator-links">
-            <a href="https://github.com/your-username" target="_blank" rel="noopener noreferrer">
+            <a href="https://github.com/Mukesh1701" target="_blank" rel="noopener noreferrer">
               <Github className="icon-inline" />
             </a>
-            <a href="https://linkedin.com/in/your-username" target="_blank" rel="noopener noreferrer">
+            <a href="https://www.linkedin.com/in/veeravalli-mukesh-1840b7321/" target="_blank" rel="noopener noreferrer">
               <Linkedin className="icon-inline" />
             </a>
           </div>
