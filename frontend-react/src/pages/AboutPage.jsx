@@ -1,4 +1,4 @@
-import { Globe, Zap, Shield, Smartphone } from 'lucide-react';
+import { Globe, Zap, Shield, Smartphone, Github, Linkedin } from 'lucide-react';
 import { FOOD_CLASSES } from '../lib/config';
 
 export default function AboutPage() {
@@ -59,7 +59,17 @@ export default function AboutPage() {
 
         <div className="about-footer">
           <p>NutriScan AI &copy; 2026</p>
-          
+          <p className="creator-credit">
+            Created by <span className="creator-name">Your Name</span>
+          </p>
+          <div className="creator-links">
+            <a href="https://github.com/your-username" target="_blank" rel="noopener noreferrer">
+              <Github className="icon-inline" />
+            </a>
+            <a href="https://linkedin.com/in/your-username" target="_blank" rel="noopener noreferrer">
+              <Linkedin className="icon-inline" />
+            </a>
+          </div>
         </div>
       </section>
     </div>
