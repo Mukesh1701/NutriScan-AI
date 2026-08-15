@@ -21,7 +21,7 @@ function App() {
       case 'about':
         return <AboutPage />;
       default:
-        return <ClassifyPage />;
+        return <BarcodePage />;
     }
   };
 
