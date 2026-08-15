@@ -2,9 +2,9 @@ import { Scan } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 const navItems = [
-  { id: 'classify', label: 'Classify' },
-  { id: 'calculator', label: 'Calculator' },
   { id: 'barcode', label: 'Barcode' },
+  { id: 'calculator', label: 'Calculator' },
+  { id: 'classify', label: 'Classify' },
   { id: 'about', label: 'About' },
 ];
 
