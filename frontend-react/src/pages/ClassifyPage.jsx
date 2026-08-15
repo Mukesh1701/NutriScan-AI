@@ -109,7 +109,7 @@ export default function ClassifyPage() {
     } catch (err) {
       console.error('Prediction error:', err);
       if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
-        showError('Cannot connect to the API. Make sure the server is running on localhost:8000');
+        showError('Cannot connect to the ML server. Please try again in a moment.');
       } else {
         showError(err.message || 'Something went wrong. Please try again.');
       }

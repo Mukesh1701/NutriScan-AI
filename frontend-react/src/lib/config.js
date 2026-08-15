@@ -1,6 +1,7 @@
-const HOSTNAME = window.location.hostname || 'localhost';
-const isServerProxy = window.location.port === '8080' || window.location.port === '8443';
-export const API_URL = isServerProxy ? '' : `http://${HOSTNAME}:8000`;
+// In development  → http://localhost:8000
+// In production   → your Render URL (set VITE_API_URL in Vercel dashboard)
+export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
 
 export const FOOD_CLASSES = [
   'apple', 'banana', 'beetroot', 'bell pepper', 'cabbage',
