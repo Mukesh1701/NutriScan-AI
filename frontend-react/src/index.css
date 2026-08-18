@@ -3731,7 +3731,49 @@ i[data-lucide] {
 
 .nscan-tips svg { color: #10b981; flex-shrink: 0; }
 
-/* ── Responsive ── */
+/* ── html5-qrcode fallback container ── */
+.nscan-h5-container {
+    display: none;
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+}
+
+.nscan-h5-container.visible {
+    display: block;
+}
+
+/* Hide all html5-qrcode default injected UI elements */
+.nscan-h5-container img,
+.nscan-h5-container button,
+.nscan-h5-container #html5-qrcode-button-camera-stop,
+.nscan-h5-container #html5-qrcode-button-camera-start,
+.nscan-h5-container #html5-qrcode-anchor-scan-type-change,
+.nscan-h5-container select {
+    display: none !important;
+}
+
+/* Hide the shaded scan region box html5-qrcode draws */
+.nscan-h5-container div[style*="border"] {
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* Make html5-qrcode's video fill our container */
+.nscan-h5-container video {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    border-radius: 20px !important;
+}
+
+/* Hide the internal processing canvas */
+.nscan-h5-container canvas {
+    display: none !important;
+}
+
 @media (max-width: 700px) {
     .nscan-layout { grid-template-columns: 1fr; }
     .nscan-right { order: -1; }
