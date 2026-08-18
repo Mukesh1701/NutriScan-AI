@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AlertTriangle, Camera, CheckCircle2, Copy, Image, PackageSearch, QrCode, RotateCcw, Search, ShieldCheck, StopCircle } from 'lucide-react';
+import {
+  AlertTriangle, Camera, CheckCircle2, Copy, FlipHorizontal, Image,
+  Lightbulb, PackageSearch, QrCode, RotateCcw, Search, ShieldCheck,
+  StopCircle, ZoomIn, ZoomOut,
+} from 'lucide-react';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { useApp } from '../context/AppContext';
 import { GRADE_INFO, NOVA_LABELS } from '../lib/config';
 
-const SCANNER_ID = 'barcode-camera-reader';
 const FILE_SCANNER_ID = 'barcode-file-reader';
-// Food-relevant formats only — fewer formats = faster per-frame detection
 const FORMATS = [
   Html5QrcodeSupportedFormats.QR_CODE,
   Html5QrcodeSupportedFormats.EAN_13,
@@ -14,260 +16,338 @@ const FORMATS = [
   Html5QrcodeSupportedFormats.UPC_A,
   Html5QrcodeSupportedFormats.UPC_E,
   Html5QrcodeSupportedFormats.CODE_128,
+  Html5QrcodeSupportedFormats.CODE_39,
+  Html5QrcodeSupportedFormats.ITF,
+  Html5QrcodeSupportedFormats.DATA_MATRIX,
 ];
+const NATIVE_FORMATS = ['qr_code', 'ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf', 'data_matrix'];
 
-// Native BarcodeDetector formats (Chrome/Edge/Android) — mirrors the list above
-const NATIVE_FORMATS = ['qr_code', 'ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128'];
+// Scan states
+const STATE = { IDLE: 'idle', SCANNING: 'scanning', LOCKED: 'locked', LOADING: 'loading' };
 
 export default function BarcodePage() {
   const { showToast } = useApp();
-  const [barcodeInput, setBarcodeInput] = useState('');
+
+  // Scanner state
+  const [scanState, setScanState] = useState(STATE.IDLE);
+  const [feedback, setFeedback] = useState('');
+  const [cameraError, setCameraError] = useState('');
+  const [facingMode, setFacingMode] = useState('environment');
+  const [torchOn, setTorchOn] = useState(false);
+  const [torchSupported, setTorchSupported] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [zoomRange, setZoomRange] = useState({ min: 1, max: 1, step: 0.1 });
+  const [mode, setMode] = useState('camera'); // 'camera' | 'upload'
+
+  // Result state
   const [detectedCode, setDetectedCode] = useState('');
   const [codeType, setCodeType] = useState('');
-  const [scannerRunning, setScannerRunning] = useState(false);
-  const [lookupLoading, setLookupLoading] = useState(false);
+  const [barcodeInput, setBarcodeInput] = useState('');
+  const [copied, setCopied] = useState(false);
   const [product, setProduct] = useState(null);
   const [showResults, setShowResults] = useState(false);
-  const [cameraError, setCameraError] = useState('');
-  const [copied, setCopied] = useState(false);
-  const scannerRef = useRef(null);
-  const fileInputRef = useRef(null);
-  const hasScannedRef = useRef(false);
-  const scanCountRef = useRef(0);
-  const barcodeInputRef = useRef('');
-  // Holds the rAF id for the native BarcodeDetector fast path
+
+  // Refs
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const streamRef = useRef(null);
+  const detectorRef = useRef(null);
   const rafRef = useRef(null);
+  const hasScannedRef = useRef(false);
+  const fileInputRef = useRef(null);
+  const trackRef = useRef(null);
 
-  const stopScanner = useCallback(async () => {
-    // Cancel the native BarcodeDetector rAF loop first
-    if (rafRef.current !== null) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-    }
-
-    const scanner = scannerRef.current;
-    if (!scanner) {
-      setScannerRunning(false);
-      return;
-    }
-
-    try {
-      const state = scanner.getState?.();
-      if (state === 2) await scanner.stop();
-      await scanner.clear();
-    } catch (_) {}
-
-    scannerRef.current = null;
-    setScannerRunning(false);
+  // ─── Stop camera ──────────────────────────────────────────────────────────
+  const stopCamera = useCallback(() => {
+    if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+    if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
+    trackRef.current = null;
+    const canvas = canvasRef.current;
+    if (canvas) { const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, canvas.width, canvas.height); }
+    setScanState(STATE.IDLE);
+    setFeedback('');
+    setTorchOn(false);
+    setTorchSupported(false);
+    setZoom(1);
+    setZoomRange({ min: 1, max: 1, step: 0.1 });
   }, []);
 
-  const detectCodeType = useCallback((code) => {
-    if (!code) return 'Unknown';
-    if (/^[A-Za-z0-9+/=]+$/.test(code) && code.length > 20) return 'QR Code';
-    if (/^\d{13}$/.test(code)) return 'EAN-13';
-    if (/^\d{8}$/.test(code)) return 'EAN-8';
-    if (/^\d{12}$/.test(code)) return 'UPC-A';
-    if (/^\d{6}$/.test(code)) return 'UPC-E';
-    if (/^[A-Za-z0-9\-._~+/]+$/.test(code)) return 'CODE-128';
-    if (/^[A-Z0-9\-. $/+%]+$/.test(code)) return 'CODE-39';
-    if (/^\d{14}$/.test(code)) return 'ITF';
-    return 'Barcode';
+  // ─── Draw overlay on canvas ───────────────────────────────────────────────
+  const drawOverlay = useCallback((barcode = null) => {
+    const canvas = canvasRef.current;
+    const video = videoRef.current;
+    if (!canvas || !video || video.readyState < 2) return;
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const W = canvas.width, H = canvas.height;
+
+    if (barcode && barcode.cornerPoints && barcode.cornerPoints.length >= 4) {
+      // Draw detection box around the exact barcode corners
+      const pts = barcode.cornerPoints;
+      ctx.save();
+      ctx.strokeStyle = '#22c55e';
+      ctx.lineWidth = 4;
+      ctx.shadowColor = 'rgba(34,197,94,0.6)';
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+      ctx.closePath();
+      ctx.stroke();
+      // Corner dots
+      ctx.fillStyle = '#22c55e';
+      pts.forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, 6, 0, Math.PI * 2); ctx.fill(); });
+      ctx.restore();
+    } else {
+      // Draw animated scan zone (centered viewfinder box)
+      const bW = Math.round(W * 0.65), bH = Math.round(bW * 0.45);
+      const bX = Math.round((W - bW) / 2), bY = Math.round((H - bH) / 2);
+      const cLen = 28, cRad = 10, lW = 3;
+
+      // Dimmed overlay outside the box
+      ctx.save();
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.beginPath();
+      ctx.rect(0, 0, W, H);
+      ctx.rect(bX + cRad, bY + cRad, bW - cRad * 2, bH - cRad * 2);
+      ctx.fill('evenodd');
+      ctx.restore();
+
+      // Corner brackets
+      const corners = [
+        [bX, bY, 1, 1], [bX + bW, bY, -1, 1],
+        [bX, bY + bH, 1, -1], [bX + bW, bY + bH, -1, -1],
+      ];
+      ctx.save();
+      ctx.strokeStyle = '#7c3aed';
+      ctx.lineWidth = lW;
+      ctx.lineCap = 'round';
+      corners.forEach(([cx, cy, dx, dy]) => {
+        ctx.beginPath();
+        ctx.moveTo(cx + dx * cLen, cy);
+        ctx.lineTo(cx, cy);
+        ctx.lineTo(cx, cy + dy * cLen);
+        ctx.stroke();
+      });
+      ctx.restore();
+
+      // Animated scan line (driven by timestamp)
+      const progress = (Date.now() % 2000) / 2000;
+      const scanY = bY + cRad + progress * (bH - cRad * 2);
+      const grad = ctx.createLinearGradient(bX, 0, bX + bW, 0);
+      grad.addColorStop(0, 'rgba(124,58,237,0)');
+      grad.addColorStop(0.5, 'rgba(124,58,237,0.9)');
+      grad.addColorStop(1, 'rgba(124,58,237,0)');
+      ctx.save();
+      ctx.fillStyle = grad;
+      ctx.fillRect(bX + cRad, scanY - 1, bW - cRad * 2, 2);
+      ctx.restore();
+    }
   }, []);
 
-  const handleDetectedCode = useCallback((code, format) => {
-    if (!code) return;
-    
-    scanCountRef.current += 1;
-    if (scanCountRef.current === 1) {
-      hasScannedRef.current = true;
-      const detectedType = format || detectCodeType(code);
-      setDetectedCode(code);
-      setCodeType(detectedType);
-      setBarcodeInput(code);
-      showToast(`${detectedType} detected: ${code}`, 'success');
-      stopScanner();
-      lookupBarcode(code);
-    }
-  }, [showToast, stopScanner, detectCodeType]);
-
-  /**
-   * Native BarcodeDetector fast path — runs a requestAnimationFrame loop
-   * directly on the <video> element, bypassing html5-qrcode's canvas pipeline.
-   * Cuts per-frame detection from ~80-100ms → ~5-15ms on Chrome/Edge/Android.
-   * Only activated when window.BarcodeDetector is available.
-   */
-  const initNativeFastPath = useCallback((videoEl) => {
-    if (!('BarcodeDetector' in window) || !videoEl) return;
-
-    let detector;
-    try {
-      detector = new window.BarcodeDetector({ formats: NATIVE_FORMATS });
-    } catch (_) {
-      return; // unsupported format list, bail gracefully
-    }
+  const startScanLoop = useCallback(() => {
+    if (!detectorRef.current || !videoRef.current) return;
 
     const loop = async () => {
-      // Stop if scanner was torn down or a code was already found
-      if (!scannerRef.current || hasScannedRef.current) return;
+      const video = videoRef.current;
+      const detector = detectorRef.current;
+      if (!video || !detector || hasScannedRef.current) return;
 
-      if (videoEl.readyState >= 2 && videoEl.videoWidth > 0) {
+      // Always redraw overlay so scan line animates every frame
+      drawOverlay(null);
+
+      if (video.readyState >= 2 && video.videoWidth > 0) {
         try {
-          const barcodes = await detector.detect(videoEl);
+          const barcodes = await detector.detect(video);
           if (barcodes.length > 0 && !hasScannedRef.current) {
-            const { rawValue, format } = barcodes[0];
-            handleDetectedCode(rawValue, format?.toUpperCase?.() || null);
-            return; // don't schedule next frame — scanner will be stopped
+            const b = barcodes[0];
+            hasScannedRef.current = true;
+            setScanState(STATE.LOCKED);
+            setFeedback('Barcode locked!');
+            // Draw the green detection box
+            drawOverlay(b);
+            const raw = b.rawValue;
+            const fmt = b.format?.toUpperCase?.() || detectCodeType(raw);
+            setDetectedCode(raw);
+            setCodeType(fmt);
+            setBarcodeInput(raw);
+            showToast(`${fmt}: ${raw}`, 'success');
+            // Short pause so user sees the locked box, then stop + lookup
+            setTimeout(() => { stopCamera(); lookupBarcode(raw); }, 600);
+            return; // don't schedule next frame
           }
-        } catch (_) {
-          // detect() can throw on hidden/zero-size frames — safe to ignore
-        }
+        } catch (_) {}
       }
 
       rafRef.current = requestAnimationFrame(loop);
     };
 
     rafRef.current = requestAnimationFrame(loop);
-  }, [handleDetectedCode]);
+  }, [drawOverlay, showToast, stopCamera]); // eslint-disable-line
 
-  const startScanner = useCallback(async () => {
+  // ─── Start camera ─────────────────────────────────────────────────────────
+  const startCamera = useCallback(async (overrideFacing) => {
     setCameraError('');
-    setShowResults(false);
-    setProduct(null);
+    hasScannedRef.current = false;
     setDetectedCode('');
     setCodeType('');
-    hasScannedRef.current = false;
-    scanCountRef.current = 0;
+    setProduct(null);
+    setShowResults(false);
+    setScanState(STATE.SCANNING);
+    setFeedback('Looking for barcodes...');
 
     if (!window.isSecureContext && window.location.hostname !== 'localhost') {
-      setCameraError('Camera access needs HTTPS or localhost. Use localhost while testing on your computer.');
-      showToast('Camera needs HTTPS or localhost.', 'error');
+      setCameraError('Camera needs HTTPS. Test on localhost or the live site.');
+      setScanState(STATE.IDLE);
       return;
     }
 
-    await stopScanner();
-
-    try {
-      const scanner = new Html5Qrcode(SCANNER_ID, {
-        formatsToSupport: FORMATS,
-        verbose: false,
-        experimentalFeatures: { useBarCodeDetectorIfSupported: true },
-      });
-      scannerRef.current = scanner;
-
-      const width = Math.min(window.innerWidth - 48, 520);
-      const qrbox = Math.max(220, Math.min(360, Math.floor(width * 0.78)));
-
-      await scanner.start(
-        { facingMode: 'environment' },
-        {
-          fps: 30,
-          qrbox: { width: qrbox, height: Math.floor(qrbox * 0.62) },
-          aspectRatio: 1.777,
-          disableFlip: true,
-          videoConstraints: {
-            facingMode: { ideal: 'environment' },
-            // Higher resolution = better barcode detection at distance
-            width: { ideal: 1920, min: 1280 },
-            height: { ideal: 1080, min: 720 },
-          },
-        },
-        (decodedText, decodedResult) => {
-          const format = decodedResult?.result?.format?.formatName || null;
-          handleDetectedCode(decodedText, format);
-        },
-        () => {}
-      );
-
-      setScannerRunning(true);
-      showToast('Camera ready. Point at a QR or barcode.', 'info');
-
-      // Start the native BarcodeDetector fast path in parallel.
-      // It reads directly from the <video> element html5-qrcode created,
-      // so whichever path detects first wins.
-      const videoEl = document.querySelector(`#${SCANNER_ID} video`);
-      initNativeFastPath(videoEl);
-    } catch (error) {
-      console.error('Scanner start failed:', error);
-      setCameraError('Could not start camera. Allow camera permission, close other camera apps, and try again.');
-      showToast('Could not start camera.', 'error');
-      await stopScanner();
+    // Build or reuse BarcodeDetector
+    if (!detectorRef.current) {
+      if ('BarcodeDetector' in window) {
+        try {
+          detectorRef.current = new window.BarcodeDetector({ formats: NATIVE_FORMATS });
+        } catch (_) {}
+      }
     }
-  }, [showToast, stopScanner, handleDetectedCode, initNativeFastPath]);
 
+    if (!detectorRef.current) {
+      setCameraError('Your browser does not support the BarcodeDetector API. Please use Chrome, Edge, or a Chromium-based browser, or use the "Upload Image" mode instead.');
+      setScanState(STATE.IDLE);
+      return;
+    }
+
+    const facing = overrideFacing ?? facingMode;
+    try {
+      if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: facing },
+          width: { ideal: 1920, min: 1280 },
+          height: { ideal: 1080, min: 720 },
+        },
+        audio: false,
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+
+      // Detect torch & zoom capability
+      const track = stream.getVideoTracks()[0];
+      trackRef.current = track;
+      if (track) {
+        const caps = track.getCapabilities?.() || {};
+        if (caps.torch) setTorchSupported(true);
+        if (caps.zoom) {
+          setZoomRange({ min: caps.zoom.min, max: caps.zoom.max, step: caps.zoom.step || 0.1 });
+        }
+      }
+
+      startScanLoop();
+    } catch (err) {
+      console.error('Camera error:', err);
+      if (err.name === 'NotAllowedError') {
+        setCameraError('Camera permission denied. Please allow camera access and try again.');
+      } else if (err.name === 'NotFoundError') {
+        setCameraError('No camera found on this device.');
+      } else {
+        setCameraError('Could not start camera. Close other apps using the camera and try again.');
+      }
+      setScanState(STATE.IDLE);
+    }
+  }, [facingMode, startScanLoop]);
+
+  // ─── Flip camera ─────────────────────────────────────────────────────────
+  const flipCamera = useCallback(async () => {
+    const next = facingMode === 'environment' ? 'user' : 'environment';
+    setFacingMode(next);
+    if (scanState === STATE.SCANNING) {
+      if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+      await startCamera(next);
+    }
+  }, [facingMode, scanState, startCamera]);
+
+  // ─── Torch ───────────────────────────────────────────────────────────────
+  const toggleTorch = useCallback(async () => {
+    const track = trackRef.current;
+    if (!track || !torchSupported) return;
+    try {
+      const next = !torchOn;
+      await track.applyConstraints({ advanced: [{ torch: next }] });
+      setTorchOn(next);
+    } catch (_) {}
+  }, [torchOn, torchSupported]);
+
+  // ─── Zoom ─────────────────────────────────────────────────────────────────
+  const applyZoom = useCallback(async (val) => {
+    const track = trackRef.current;
+    if (!track) return;
+    try {
+      await track.applyConstraints({ advanced: [{ zoom: val }] });
+      setZoom(val);
+    } catch (_) {}
+  }, []);
+
+  // ─── File scan ────────────────────────────────────────────────────────────
   const scanFromFile = async (file) => {
     if (!file) return;
     hasScannedRef.current = false;
-    scanCountRef.current = 0;
     showToast('Scanning image...', 'info');
-
     try {
-      const scanner = new Html5Qrcode(FILE_SCANNER_ID, { 
-        formatsToSupport: FORMATS, 
-        verbose: false,
-        experimentalFeatures: { useBarCodeDetectorIfSupported: true }
-      });
-      // Pass false to avoid rendering image in DOM, which fails if container is hidden
+      const scanner = new Html5Qrcode(FILE_SCANNER_ID, { formatsToSupport: FORMATS, verbose: false });
       const result = await scanner.scanFile(file, false);
       await scanner.clear();
       if (result) {
         const code = typeof result === 'string' ? result : result.decodedText;
-        const format = result?.format?.formatName || detectCodeType(code);
-        handleDetectedCode(code, format);
+        const fmt = result?.format?.formatName || detectCodeType(code);
+        setDetectedCode(code);
+        setCodeType(fmt);
+        setBarcodeInput(code);
+        showToast(`${fmt}: ${code}`, 'success');
+        lookupBarcode(code);
       }
-    } catch (error) {
-      console.error('File scan failed:', error);
-      showToast('No QR/barcode found in image.', 'error');
+    } catch (_) {
+      showToast('No barcode found in that image. Try a clearer photo.', 'error');
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
-  // Keep ref in sync with state so lookupBarcode always reads fresh value
-  useEffect(() => { barcodeInputRef.current = barcodeInput; }, [barcodeInput]);
-
+  // ─── Barcode lookup ───────────────────────────────────────────────────────
   const lookupBarcode = useCallback(async (code) => {
-    // Prefer the explicitly passed code, then the ref (always fresh), then state
-    const barcode = String(code ?? barcodeInputRef.current ?? barcodeInput).trim();
-    if (!barcode) {
-      showToast('Enter or scan a code first.', 'error');
-      return;
-    }
-
-    setLookupLoading(true);
+    const barcode = String(code ?? barcodeInput ?? '').trim();
+    if (!barcode) { showToast('Enter or scan a code first.', 'error'); return; }
+    setScanState(STATE.LOADING);
     setBarcodeInput(barcode);
     setDetectedCode(barcode);
-
     try {
       let found;
-      for (const version of ['v2', 'v0']) {
-        const response = await fetch(`https://world.openfoodfacts.org/api/${version}/product/${encodeURIComponent(barcode)}.json`);
-        if (!response.ok) continue;
-        const json = await response.json();
-        if (json?.status === 1 && json.product) {
-          found = json.product;
-          break;
-        }
+      for (const v of ['v2', 'v0']) {
+        const res = await fetch(`https://world.openfoodfacts.org/api/${v}/product/${encodeURIComponent(barcode)}.json`);
+        if (!res.ok) continue;
+        const json = await res.json();
+        if (json?.status === 1 && json.product) { found = json.product; break; }
       }
-
-      if (!found) {
-        showToast('Code detected, but product was not found.', 'error');
-        return;
-      }
-
+      if (!found) { showToast('Product not found in database.', 'error'); setScanState(STATE.IDLE); return; }
       setProduct(found);
       setShowResults(true);
-      saveBarcodeToHistory(found, barcode);
-      showToast('Product found.', 'success');
-    } catch (error) {
-      console.error('Product lookup failed:', error);
+      showToast('Product found!', 'success');
+    } catch (e) {
       showToast('Could not connect to product database.', 'error');
     } finally {
-      setLookupLoading(false);
+      setScanState(prev => prev === STATE.LOADING ? STATE.IDLE : prev);
     }
-  }, [showToast]);
+  }, [barcodeInput, showToast]);
 
-  const resetScanner = async () => {
-    await stopScanner();
+  // ─── Reset ────────────────────────────────────────────────────────────────
+  const resetScanner = useCallback(async () => {
+    stopCamera();
     setProduct(null);
     setShowResults(false);
     setDetectedCode('');
@@ -276,130 +356,264 @@ export default function BarcodePage() {
     setCameraError('');
     setCopied(false);
     hasScannedRef.current = false;
-    scanCountRef.current = 0;
-  };
+    setMode('camera');
+  }, [stopCamera]);
 
+  // ─── Copy ─────────────────────────────────────────────────────────────────
   const copyToClipboard = async () => {
     if (!detectedCode) return;
-    try {
-      await navigator.clipboard.writeText(detectedCode);
-      setCopied(true);
-      showToast('Code copied to clipboard', 'success');
-      setTimeout(() => setCopied(false), 2000);
-    } catch (_) {
-      showToast('Failed to copy', 'error');
-    }
+    try { await navigator.clipboard.writeText(detectedCode); setCopied(true); setTimeout(() => setCopied(false), 2000); }
+    catch (_) {}
   };
 
-  useEffect(() => () => { stopScanner(); }, [stopScanner]);
+  // ─── Helpers ──────────────────────────────────────────────────────────────
+  function detectCodeType(code) {
+    if (!code) return 'Barcode';
+    if (/^\d{13}$/.test(code)) return 'EAN-13';
+    if (/^\d{8}$/.test(code)) return 'EAN-8';
+    if (/^\d{12}$/.test(code)) return 'UPC-A';
+    if (/^\d{6}$/.test(code)) return 'UPC-E';
+    if (/^\d{14}$/.test(code)) return 'ITF-14';
+    if (/^[A-Za-z0-9+/=]{20,}$/.test(code)) return 'QR Code';
+    if (/^[A-Za-z0-9\-._~+/]+$/.test(code)) return 'CODE-128';
+    return 'Barcode';
+  }
 
+  // Cleanup on unmount
+  useEffect(() => () => stopCamera(), [stopCamera]);
+
+  // ─── Derived values for results ───────────────────────────────────────────
   const nuts = product?.nutriments || {};
   const grade = (product?.nutriscore_grade || 'e').toLowerCase();
   const gradeUpper = grade.toUpperCase();
   const gradeInfo = GRADE_INFO[gradeUpper] || GRADE_INFO.E;
   const kcal = nuts['energy-kcal_100g'] ?? (nuts.energy_100g ? nuts.energy_100g / 4.184 : null);
-  const fmt = (value) => value === undefined || value === null || Number.isNaN(Number(value)) ? '?' : Number(value).toFixed(1);
-  const badge = (value, medium, high) => {
-    if (value === undefined || value === null || Number.isNaN(Number(value))) return null;
-    const n = Number(value);
-    if (n > high) return { label: 'High', className: 'badge-high' };
-    if (n > medium) return { label: 'Moderate', className: 'badge-mod' };
+  const fmt = (v) => (v == null || Number.isNaN(+v)) ? '?' : Number(v).toFixed(1);
+  const badge = (v, med, hi) => {
+    if (v == null || Number.isNaN(+v)) return null;
+    const n = +v;
+    if (n > hi) return { label: 'High', className: 'badge-high' };
+    if (n > med) return { label: 'Moderate', className: 'badge-mod' };
     return { label: 'Low', className: 'badge-low' };
   };
-
   const warnings = [];
-  if ((nuts.sugars_100g || 0) > 22.5) warnings.push(['danger', 'High Sugar Content', `Contains ${fmt(nuts.sugars_100g)}g sugar per 100g.`]);
-  if ((nuts['saturated-fat_100g'] || 0) > 5) warnings.push(['danger', 'High Saturated Fat', `Contains ${fmt(nuts['saturated-fat_100g'])}g saturated fat per 100g.`]);
-  if ((nuts.salt_100g || 0) > 1.5) warnings.push(['warning', 'High Salt', `Contains ${fmt(nuts.salt_100g)}g salt per 100g.`]);
-  if (product?.additives_n > 0) warnings.push(['info', `Food Additives Detected (${product.additives_n})`, (product.additives_tags || []).map((t) => t.replace('en:', '').toUpperCase()).slice(0, 8).join(', ') || 'Contains additives.']);
-  if (product?.allergens) warnings.push(['danger', 'Allergens Present', product.allergens.replace(/en:/g, '')]);
+  if ((nuts.sugars_100g || 0) > 22.5) warnings.push(['danger', 'High Sugar', `${fmt(nuts.sugars_100g)}g per 100g`]);
+  if ((nuts['saturated-fat_100g'] || 0) > 5) warnings.push(['danger', 'High Saturated Fat', `${fmt(nuts['saturated-fat_100g'])}g per 100g`]);
+  if ((nuts.salt_100g || 0) > 1.5) warnings.push(['warning', 'High Salt', `${fmt(nuts.salt_100g)}g per 100g`]);
+  if (product?.additives_n > 0) warnings.push(['info', `${product.additives_n} Additives`, (product.additives_tags || []).map(t => t.replace('en:', '').toUpperCase()).slice(0, 6).join(', ')]);
+  if (product?.allergens) warnings.push(['danger', 'Allergens', product.allergens.replace(/en:/g, '')]);
 
+  const isScanning = scanState === STATE.SCANNING;
+  const isLocked  = scanState === STATE.LOCKED;
+  const isLoading = scanState === STATE.LOADING;
+
+  // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <div id="page-barcode">
       <section className="barcode-section clean-page">
+        {/* Hero */}
         <div className="barcode-hero clean-hero">
-          <span className="clean-eyebrow"><QrCode size={16} /> Fast QR & Barcode Scanner</span>
-          <h2 className="barcode-title">Scan products with your <span className="gradient-text">camera</span></h2>
-          <p className="barcode-subtitle">Open the camera, point at a QR code or food barcode, and the detected code appears instantly before product lookup.</p>
+          <span className="clean-eyebrow"><QrCode size={16} /> AI Barcode Scanner</span>
+          <h1 className="barcode-title">Scan food products with your <span className="gradient-text">camera</span></h1>
+          <p className="barcode-subtitle">Point your camera at any food barcode or QR code. NutriScan AI detects it instantly and shows the full nutrition profile.</p>
         </div>
 
         {!showResults ? (
-          <div className="scan-layout">
-            <div className="scanner-panel clean-card">
-              <div className="scanner-toolbar">
-                <button type="button" className="scan-primary-btn" onClick={scannerRunning ? stopScanner : startScanner}>
-                  {scannerRunning ? <StopCircle size={19} /> : <Camera size={19} />}
-                  {scannerRunning ? 'Stop Camera' : 'Start Camera Scan'}
+          <div className="nscan-layout">
+            {/* ── Scanner panel ── */}
+            <div className="nscan-left">
+              {/* Mode tabs */}
+              <div className="nscan-mode-tabs">
+                <button
+                  className={`nscan-mode-tab ${mode === 'camera' ? 'active' : ''}`}
+                  onClick={() => { setMode('camera'); if (isScanning) stopCamera(); }}
+                >
+                  <Camera size={16} /> Camera Scan
                 </button>
-                <button type="button" className="scan-secondary-btn" onClick={() => fileInputRef.current?.click()}>
-                  <Image size={18} /> Upload Image
+                <button
+                  className={`nscan-mode-tab ${mode === 'upload' ? 'active' : ''}`}
+                  onClick={() => { setMode('upload'); stopCamera(); }}
+                >
+                  <Image size={16} /> Upload Image
                 </button>
               </div>
 
-              <div className={`camera-frame ${scannerRunning ? 'camera-live' : ''}`}>
-                <div id={SCANNER_ID} className="camera-reader" />
-                {!scannerRunning && (
-                  <div className="camera-placeholder">
-                    <QrCode size={54} />
-                    <strong>Camera preview</strong>
-                    <span>Tap Start Camera Scan</span>
+              {mode === 'camera' ? (
+                <div className="nscan-camera-card">
+                  {/* Camera viewport */}
+                  <div className={`nscan-viewport ${isScanning || isLocked ? 'live' : ''}`}>
+                    <video
+                      ref={videoRef}
+                      className="nscan-video"
+                      autoPlay
+                      playsInline
+                      muted
+                      style={{ display: isScanning || isLocked ? 'block' : 'none' }}
+                    />
+                    <canvas
+                      ref={canvasRef}
+                      className="nscan-overlay-canvas"
+                      style={{ display: isScanning || isLocked ? 'block' : 'none' }}
+                    />
+
+                    {/* Idle placeholder */}
+                    {!isScanning && !isLocked && (
+                      <div className="nscan-placeholder">
+                        <QrCode size={56} opacity={0.5} />
+                        <strong>Camera Preview</strong>
+                        <span>Tap "Start Scanning" below</span>
+                      </div>
+                    )}
+
+                    {/* In-camera action buttons */}
+                    {(isScanning || isLocked) && (
+                      <>
+                        {/* Stop button top-left */}
+                        <button className="nscan-cam-btn nscan-cam-stop" onClick={stopCamera} title="Stop camera">
+                          <StopCircle size={18} />
+                        </button>
+
+                        {/* Top-right action cluster */}
+                        <div className="nscan-cam-actions">
+                          {torchSupported && (
+                            <button
+                              className={`nscan-cam-btn ${torchOn ? 'nscan-torch-on' : ''}`}
+                              onClick={toggleTorch}
+                              title="Torch"
+                            >
+                              <Lightbulb size={17} />
+                            </button>
+                          )}
+                          <button className="nscan-cam-btn" onClick={flipCamera} title="Flip camera">
+                            <FlipHorizontal size={17} />
+                          </button>
+                        </div>
+
+                        {/* Zoom slider on the left */}
+                        {zoomRange.max > zoomRange.min && (
+                          <div className="nscan-zoom-rail">
+                            <ZoomOut size={14} style={{ color: '#fff', opacity: 0.7 }} />
+                            <input
+                              type="range"
+                              className="nscan-zoom-slider"
+                              min={zoomRange.min}
+                              max={zoomRange.max}
+                              step={zoomRange.step}
+                              value={zoom}
+                              onChange={e => applyZoom(+e.target.value)}
+                              style={{ writingMode: 'vertical-lr', direction: 'rtl' }}
+                            />
+                            <ZoomIn size={14} style={{ color: '#fff', opacity: 0.7 }} />
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {/* Feedback bar */}
+                    {(isScanning || isLocked) && (
+                      <div className={`nscan-feedback-bar ${isLocked ? 'locked' : 'scanning'}`}>
+                        {isLocked ? <CheckCircle2 size={16} /> : <span className="nscan-pulse-dot" />}
+                        <span>{feedback || (isLocked ? 'Barcode locked!' : 'Scanning... point at a barcode')}</span>
+                      </div>
+                    )}
+
+                    {/* Loading overlay */}
+                    {isLoading && (
+                      <div className="nscan-loading-overlay">
+                        <div className="nscan-spinner" />
+                        <span>Looking up product...</span>
+                      </div>
+                    )}
                   </div>
-                )}
-                <div className="scan-box-overlay">
-                  <span className="scan-corner scan-corner-tl" />
-                  <span className="scan-corner scan-corner-tr" />
-                  <span className="scan-corner scan-corner-bl" />
-                  <span className="scan-corner scan-corner-br" />
-                  {scannerRunning && <span className="scan-line" />}
-                </div>
-              </div>
 
-              {cameraError && (
-                <div className="camera-error"><AlertTriangle size={16} /> {cameraError}</div>
+                  {/* Start / detected section */}
+                  {!isScanning && !isLocked && !isLoading && (
+                    <button className="nscan-start-btn" onClick={() => startCamera()}>
+                      <Camera size={20} /> Start Scanning
+                    </button>
+                  )}
+
+                  {cameraError && (
+                    <div className="nscan-camera-error">
+                      <AlertTriangle size={16} /> {cameraError}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* Upload mode */
+                <div
+                  className="nscan-upload-zone"
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }}
+                  onDragLeave={e => e.currentTarget.classList.remove('drag-over')}
+                  onDrop={e => { e.preventDefault(); e.currentTarget.classList.remove('drag-over'); const f = e.dataTransfer.files?.[0]; if (f) scanFromFile(f); }}
+                >
+                  <Image size={52} opacity={0.4} />
+                  <strong>Click or drag & drop an image</strong>
+                  <span>JPG, PNG, WebP, GIF — any image with a clear barcode</span>
+                  <button className="nscan-upload-btn">Choose Image</button>
+                </div>
               )}
 
-              <div className="detected-code-card">
-                <div className="detected-code-header">
+              <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={e => scanFromFile(e.target.files?.[0])} />
+              <div id={FILE_SCANNER_ID} style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: 1, height: 1, overflow: 'hidden' }} />
+            </div>
+
+            {/* ── Right panel: detected code + manual lookup ── */}
+            <div className="nscan-right">
+              {/* Detected code card */}
+              <div className="nscan-result-card">
+                <div className="nscan-result-header">
                   <span>Detected Code</span>
-                  {codeType && <span className="code-type-badge">{codeType}</span>}
+                  {codeType && <span className="nscan-code-badge">{codeType}</span>}
                 </div>
-                <div className="detected-code-value">
-                  <strong>{detectedCode || 'Waiting for scan...'}</strong>
-                  {detectedCode && (
-                    <button type="button" className="copy-btn" onClick={copyToClipboard} title="Copy to clipboard">
-                      {copied ? <CheckCircle2 size={16} /> : <Copy size={16} />}
-                    </button>
+                <div className="nscan-result-value">
+                  {detectedCode ? (
+                    <>
+                      <span className="nscan-code-text">{detectedCode}</span>
+                      <button className="nscan-copy-btn" onClick={copyToClipboard} title="Copy">
+                        {copied ? <CheckCircle2 size={16} style={{ color: 'var(--grade-a)' }} /> : <Copy size={16} />}
+                      </button>
+                    </>
+                  ) : (
+                    <span className="nscan-code-empty">Waiting for scan...</span>
                   )}
                 </div>
               </div>
 
-              <input ref={fileInputRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => scanFromFile(e.target.files?.[0])} />
-              <div id={FILE_SCANNER_ID} style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: '300px', height: '300px', zIndex: -100 }} />
-            </div>
-
-            <div className="manual-panel clean-card">
-              <div className="manual-panel-title">
-                <PackageSearch size={22} />
-                <div>
-                  <h3>Manual Lookup</h3>
-                  <p>Type barcode digits if camera scan is not available.</p>
+              {/* Manual lookup */}
+              <div className="nscan-manual-card">
+                <div className="nscan-manual-header">
+                  <PackageSearch size={20} />
+                  <div>
+                    <h3>Manual Lookup</h3>
+                    <p>Type a barcode number if camera isn't available</p>
+                  </div>
                 </div>
-              </div>
-              <label className="form-label" htmlFor="barcode-input">Barcode / QR text</label>
-              <div className="clean-input-row">
-                <input id="barcode-input" className="form-input" value={barcodeInput} onChange={(e) => setBarcodeInput(e.target.value)} placeholder="Example: 5000159484695" />
-                <button type="button" className="scan-primary-btn" onClick={() => lookupBarcode()} disabled={lookupLoading}>
-                  <Search size={18} /> {lookupLoading ? 'Searching...' : 'Lookup'}
-                </button>
-              </div>
-              <div className="scanner-tips">
-                <div><CheckCircle2 size={15} /> Use good lighting</div>
-                <div><CheckCircle2 size={15} /> Keep barcode inside the box</div>
-                <div><CheckCircle2 size={15} /> Works best on HTTPS or localhost</div>
+                <label className="nscan-label" htmlFor="barcode-input">Barcode / QR text</label>
+                <div className="nscan-manual-row">
+                  <input
+                    id="barcode-input"
+                    className="nscan-input"
+                    value={barcodeInput}
+                    onChange={e => setBarcodeInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && lookupBarcode()}
+                    placeholder="e.g. 8901058852198"
+                  />
+                  <button className="nscan-lookup-btn" onClick={() => lookupBarcode()} disabled={isLoading}>
+                    {isLoading ? <><span className="nscan-btn-spinner" /> Searching...</> : <><Search size={17} /> Lookup</>}
+                  </button>
+                </div>
+                <div className="nscan-tips">
+                  <div><CheckCircle2 size={14} /> Use good lighting and hold steady</div>
+                  <div><CheckCircle2 size={14} /> Keep barcode fully in the scan zone</div>
+                  <div><CheckCircle2 size={14} /> Works best on Chrome / Edge</div>
+                </div>
               </div>
             </div>
           </div>
         ) : (
+          /* Results view */
           <div className="barcode-results-section clean-results">
             <div className={`grade-hero-card grade-${grade}-theme`}>
               <div className="grade-badge-circle"><span className="grade-letter">{gradeUpper}</span></div>
@@ -416,14 +630,18 @@ export default function BarcodePage() {
             <div className="product-info-card">
               <div className="product-info-row">
                 <div className="product-img-wrapper">
-                  <img src={product?.image_url || 'https://images.openfoodfacts.org/images/icons/dist/packaging.svg'} alt={product?.product_name || 'Product'} onError={(e) => { e.target.src = 'https://images.openfoodfacts.org/images/icons/dist/packaging.svg'; }} />
+                  <img
+                    src={product?.image_url || 'https://images.openfoodfacts.org/images/icons/dist/packaging.svg'}
+                    alt={product?.product_name || 'Product'}
+                    onError={e => { e.target.src = 'https://images.openfoodfacts.org/images/icons/dist/packaging.svg'; }}
+                  />
                 </div>
                 <div className="product-text-details">
                   <span className="prod-brand">{product?.brands || 'Unknown Brand'}</span>
                   <h3 className="prod-name">{product?.product_name || 'Unknown Product'}</h3>
                   <div className="prod-meta-tags">
-                    <span className="prod-tag">Detected: {detectedCode}</span>
-                    <span className="prod-tag category-tag">Category: {(product?.categories || '').split(',')[0].trim() || 'Unknown'}</span>
+                    <span className="prod-tag">Code: {detectedCode}</span>
+                    <span className="prod-tag category-tag">{(product?.categories || '').split(',')[0].trim() || 'Unknown'}</span>
                   </div>
                 </div>
               </div>
@@ -444,8 +662,8 @@ export default function BarcodePage() {
             <div className="barcode-card clean-card">
               <h3 className="section-label">Ingredient & Safety Alerts</h3>
               <div className="warnings-list">
-                {warnings.length ? warnings.map(([type, title, desc], index) => (
-                  <div key={index} className={`warning-alert-item alert-${type}`}>
+                {warnings.length ? warnings.map(([type, title, desc], i) => (
+                  <div key={i} className={`warning-alert-item alert-${type}`}>
                     <span className="alert-icon"><AlertTriangle size={18} /></span>
                     <div className="alert-info"><div className="alert-title">{title}</div><div className="alert-desc">{desc}</div></div>
                   </div>
@@ -458,7 +676,7 @@ export default function BarcodePage() {
               </div>
             </div>
 
-            <button type="button" className="scan-primary-btn scan-again-wide" onClick={resetScanner}>
+            <button className="scan-primary-btn scan-again-wide" onClick={resetScanner}>
               <RotateCcw size={18} /> Scan Another Product
             </button>
           </div>
