@@ -76,9 +76,6 @@ export function AppProvider({ children }) {
   // Today's logged calories
   const [todayLoggedCalories, setTodayLoggedCalories] = useState(0);
 
-  // Page state
-  const [activePage, setActivePage] = useState('barcode');
-
   // Toast/error state
   const [toast, setToast] = useState({
     visible: false,
@@ -178,8 +175,6 @@ export function AppProvider({ children }) {
     setUserGoalProfile,
     todayLoggedCalories,
     setTodayLoggedCalories,
-    activePage,
-    setActivePage,
     toast,
     setToast,
 

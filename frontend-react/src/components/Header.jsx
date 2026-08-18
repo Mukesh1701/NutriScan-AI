@@ -1,34 +1,40 @@
 import { Scan } from 'lucide-react';
-import { useApp } from '../context/AppContext';
+import { Link, useLocation } from 'react-router-dom';
 
 const navItems = [
-  { id: 'barcode', label: 'Barcode' },
-  { id: 'calculator', label: 'Calculator' },
-  { id: 'classify', label: 'Classify' },
-  { id: 'about', label: 'About' },
+  { to: '/', label: 'Barcode' },
+  { to: '/calculator', label: 'Calculator' },
+  { to: '/classify', label: 'Classify' },
+  { to: '/about', label: 'About' },
 ];
 
 export default function Header() {
-  const { activePage, setActivePage } = useApp();
+  const location = useLocation();
+
+  // Active state: exact match for '/', prefix match for others
+  const isActive = (to) => {
+    if (to === '/') return location.pathname === '/';
+    return location.pathname.startsWith(to);
+  };
 
   return (
     <header className="header">
       <div className="header-inner">
-        <div className="logo">
+        <Link to="/" className="logo" style={{ textDecoration: 'none' }}>
           <Scan className="logo-icon-svg" />
           <span className="logo-text">
             NutriScan<span className="logo-accent">AI</span>
           </span>
-        </div>
-        <nav className="nav-pills">
+        </Link>
+        <nav className="nav-pills" aria-label="Main navigation">
           {navItems.map((item) => (
-            <button
-              key={item.id}
-              className={`pill ${activePage === item.id ? 'active' : ''}`}
-              onClick={() => setActivePage(item.id)}
+            <Link
+              key={item.to}
+              to={item.to}
+              className={`pill ${isActive(item.to) ? 'active' : ''}`}
             >
               {item.label}
-            </button>
+            </Link>
           ))}
         </nav>
       </div>

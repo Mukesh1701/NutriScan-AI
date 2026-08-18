@@ -4049,3 +4049,774 @@ i[data-lucide] {
         grid-template-columns: 1fr;
     }
 }
+
+
+/* =========================================
+   SEO Landing Pages & Article Pages
+   ========================================= */
+
+/* ---- Pill nav link (router) ---- */
+.pill {
+  text-decoration: none;
+  color: inherit;
+  display: inline-block;
+}
+
+/* ---- Shared SEO page wrapper ---- */
+.seo-page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 24px 80px;
+  position: relative;
+  z-index: 1;
+}
+
+/* ---- Hero section ---- */
+.seo-hero {
+  text-align: center;
+  padding: 60px 20px 50px;
+}
+
+.seo-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(124, 58, 237, 0.1);
+  border: 1px solid rgba(124, 58, 237, 0.2);
+  color: var(--accent-1);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border-radius: 100px;
+  margin-bottom: 20px;
+}
+
+.seo-hero-title {
+  font-size: clamp(2rem, 5vw, 3.2rem);
+  font-weight: 900;
+  letter-spacing: -1px;
+  line-height: 1.15;
+  color: var(--text-primary);
+  margin-bottom: 20px;
+}
+
+.seo-hero-subtitle {
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+  max-width: 640px;
+  margin: 0 auto 32px;
+  line-height: 1.7;
+}
+
+.seo-hero-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* ---- CTA buttons ---- */
+.btn-primary-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--gradient-main);
+  color: white;
+  font-size: 0.95rem;
+  font-weight: 700;
+  padding: 14px 28px;
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+  box-shadow: 0 4px 20px rgba(124, 58, 237, 0.3);
+}
+
+.btn-primary-cta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(124, 58, 237, 0.4);
+}
+
+.btn-secondary-cta {
+  display: inline-flex;
+  align-items: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border-accent);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 14px 24px;
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  transition: background var(--transition-fast), transform var(--transition-fast);
+}
+
+.btn-secondary-cta:hover {
+  background: var(--bg-card-hover);
+  transform: translateY(-2px);
+}
+
+/* ---- Section layout ---- */
+.seo-section {
+  padding: 56px 0;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.seo-section-alt {
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: var(--radius-lg);
+  padding: 48px 40px;
+  margin: 0 -20px;
+}
+
+.seo-section-title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.seo-section-subtitle {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  max-width: 620px;
+  line-height: 1.7;
+  margin-bottom: 32px;
+}
+
+/* ---- How-it-works steps ---- */
+.seo-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+  margin-top: 8px;
+}
+
+.seo-step-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 24px 20px;
+  position: relative;
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.seo-step-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+}
+
+.seo-step-number {
+  position: absolute;
+  top: -14px;
+  left: 20px;
+  width: 28px;
+  height: 28px;
+  background: var(--gradient-main);
+  color: white;
+  font-size: 0.8rem;
+  font-weight: 800;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.seo-step-icon {
+  width: 40px;
+  height: 40px;
+  background: rgba(124, 58, 237, 0.1);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-1);
+  margin-bottom: 12px;
+}
+
+.seo-step-card h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+
+.seo-step-card p {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* ---- Format chips ---- */
+.seo-format-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.seo-format-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-accent);
+  border-radius: 100px;
+  padding: 8px 16px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* ---- Benefits grid ---- */
+.seo-benefits-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 20px;
+}
+
+.seo-benefit-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 24px 20px;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.seo-benefit-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+}
+
+.seo-benefit-icon {
+  width: 40px;
+  height: 40px;
+  background: var(--gradient-main);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  margin-bottom: 12px;
+}
+
+.seo-benefit-card h3 {
+  font-size: 0.975rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.seo-benefit-card p {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* ---- Info list ---- */
+.seo-info-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.seo-info-list.seo-two-col {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.seo-info-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.seo-check {
+  color: var(--grade-a);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ---- Health grade cards ---- */
+.seo-grades-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.seo-grade-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  border-left: 4px solid var(--grade-accent);
+}
+
+.seo-grade-badge {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  color: white;
+  font-size: 1.2rem;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.seo-grade-card strong {
+  font-size: 1rem;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.seo-grade-card p {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ---- NOVA grid ---- */
+.seo-nova-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.seo-nova-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 20px;
+}
+
+.seo-nova-number {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent-1);
+  margin-bottom: 6px;
+}
+
+.seo-nova-card strong {
+  display: block;
+  font-size: 0.975rem;
+  margin-bottom: 6px;
+}
+
+.seo-nova-card p {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ---- Alert chips ---- */
+.seo-alert-examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.seo-alert-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 100px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.seo-alert-red { background: rgba(220, 38, 38, 0.1); color: #dc2626; border: 1px solid rgba(220, 38, 38, 0.2); }
+.seo-alert-orange { background: rgba(234, 88, 12, 0.1); color: #ea580c; border: 1px solid rgba(234, 88, 12, 0.2); }
+.seo-alert-yellow { background: rgba(217, 119, 6, 0.1); color: #d97706; border: 1px solid rgba(217, 119, 6, 0.2); }
+
+/* ---- Health signals (good/bad checklist) ---- */
+.seo-health-signals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 10px;
+}
+
+.seo-signal {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.seo-signal-good { background: rgba(22, 163, 74, 0.07); border: 1px solid rgba(22, 163, 74, 0.15); }
+.seo-signal-bad  { background: rgba(220, 38, 38, 0.07); border: 1px solid rgba(220, 38, 38, 0.15); }
+
+/* ---- Unhealthy foods list ---- */
+.seo-unhealthy-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.seo-unhealthy-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 14px 18px;
+}
+
+.seo-unhealthy-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 0.975rem;
+  margin-bottom: 4px;
+}
+
+.seo-unhealthy-reason {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.seo-tip {
+  background: rgba(124, 58, 237, 0.07);
+  border: 1px solid rgba(124, 58, 237, 0.15);
+  border-radius: var(--radius-sm);
+  padding: 14px 18px;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  line-height: 1.6;
+}
+
+/* ---- CTA section at bottom ---- */
+.seo-cta-section {
+  text-align: center;
+  padding: 60px 40px;
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.06), rgba(6, 182, 212, 0.06));
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border-accent);
+  margin-top: 40px;
+}
+
+.seo-cta-section h2 {
+  font-size: 1.75rem;
+  font-weight: 800;
+  margin-bottom: 12px;
+  color: var(--text-primary);
+}
+
+.seo-cta-section p {
+  color: var(--text-secondary);
+  margin-bottom: 24px;
+  font-size: 1rem;
+}
+
+.seo-related-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+  font-size: 0.875rem;
+}
+
+.seo-related-links span {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.seo-related-links a {
+  color: var(--accent-1);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color var(--transition-fast);
+}
+
+.seo-related-links a:hover {
+  color: var(--accent-2);
+  text-decoration: underline;
+}
+
+/* =========================================
+   Article Page Styles
+   ========================================= */
+
+.article-page {
+  padding-bottom: 80px;
+}
+
+.article-container {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.article-header {
+  text-align: center;
+  padding: 52px 0 40px;
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: 40px;
+}
+
+.article-title {
+  font-size: clamp(1.8rem, 4.5vw, 2.8rem);
+  font-weight: 900;
+  letter-spacing: -0.8px;
+  line-height: 1.2;
+  color: var(--text-primary);
+  margin: 16px 0 16px;
+}
+
+.article-subtitle {
+  font-size: 1.05rem;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  max-width: 580px;
+  margin: 0 auto;
+}
+
+.article-meta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-top: 16px;
+}
+
+/* ---- Article body typography ---- */
+.article-body h2 {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 36px 0 12px;
+  letter-spacing: -0.3px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.article-body h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 20px 0 8px;
+}
+
+.article-body p {
+  font-size: 0.975rem;
+  color: var(--text-secondary);
+  line-height: 1.75;
+  margin-bottom: 16px;
+}
+
+.article-body ul, .article-body ol {
+  margin: 0 0 16px 20px;
+  color: var(--text-secondary);
+  font-size: 0.975rem;
+  line-height: 1.75;
+}
+
+.article-body li {
+  margin-bottom: 6px;
+}
+
+.article-body strong {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.article-body em {
+  font-style: italic;
+}
+
+/* ---- Callout box ---- */
+.article-callout {
+  background: rgba(124, 58, 237, 0.07);
+  border-left: 4px solid var(--accent-1);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 16px 20px;
+  margin: 20px 0;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  line-height: 1.65;
+}
+
+/* ---- Q&A blocks ---- */
+.article-qa {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 18px 20px;
+  margin: 12px 0;
+}
+
+.article-qa h3 {
+  font-size: 0.975rem;
+  color: var(--accent-1);
+  margin: 0 0 8px;
+}
+
+.article-qa p {
+  font-size: 0.9rem;
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+/* ---- Tables ---- */
+.article-table-wrap, .additive-table-wrap {
+  overflow-x: auto;
+  margin: 16px 0;
+}
+
+.article-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.article-table th {
+  background: rgba(124, 58, 237, 0.08);
+  color: var(--text-primary);
+  font-weight: 700;
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 2px solid var(--border-accent);
+}
+
+.article-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.article-table tr:hover td {
+  background: rgba(124, 58, 237, 0.03);
+}
+
+/* ---- Sugar grid ---- */
+.article-sugar-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.article-sugar-chip {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #dc2626;
+  border-radius: 100px;
+  padding: 5px 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+/* ---- Additive category ---- */
+.additive-category {
+  margin: 28px 0;
+}
+
+/* ---- Article CTA ---- */
+.article-cta {
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.08), rgba(6, 182, 212, 0.06));
+  border: 1px solid var(--border-accent);
+  border-radius: var(--radius-lg);
+  padding: 36px 32px;
+  text-align: center;
+  margin: 40px 0;
+}
+
+.article-cta h3 {
+  font-size: 1.3rem;
+  font-weight: 800;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+
+.article-cta p {
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+  font-size: 0.975rem;
+}
+
+/* ---- Related articles ---- */
+.article-related {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 28px;
+  margin-top: 28px;
+}
+
+.article-related h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 14px;
+  color: var(--text-primary);
+}
+
+.article-related-links {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.article-related-links a {
+  color: var(--accent-1);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(124, 58, 237, 0.05);
+  border: 1px solid rgba(124, 58, 237, 0.1);
+  transition: background var(--transition-fast), transform var(--transition-fast);
+}
+
+.article-related-links a:hover {
+  background: rgba(124, 58, 237, 0.1);
+  transform: translateX(4px);
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 600px) {
+  .seo-hero { padding: 40px 0 32px; }
+  .seo-hero-title { font-size: 1.75rem; }
+  .seo-section-alt { margin: 0; padding: 32px 20px; }
+  .seo-steps { grid-template-columns: 1fr; }
+  .seo-benefits-grid { grid-template-columns: 1fr 1fr; }
+  .seo-grades-grid { gap: 8px; }
+  .seo-nova-grid { grid-template-columns: 1fr 1fr; }
+  .seo-cta-section { padding: 40px 20px; }
+  .article-title { font-size: 1.6rem; }
+  .article-body h2 { font-size: 1.2rem; }
+  .article-cta { padding: 24px 20px; }
+  .seo-health-signals { grid-template-columns: 1fr; }
+  .seo-info-list.seo-two-col { grid-template-columns: 1fr; }
+}
