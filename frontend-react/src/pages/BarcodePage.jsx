@@ -64,6 +64,8 @@ export default function BarcodePage() {
   const barcodeInputRef = useRef('');
   // Holds the rAF id for the native BarcodeDetector fast path
   const rafRef = useRef(null);
+  // Holds the MediaStream for the native full-frame scanner
+  const streamRef = useRef(null);
 
   const stopScanner = useCallback(async () => {
     // Cancel the native BarcodeDetector rAF loop first
@@ -71,6 +73,15 @@ export default function BarcodePage() {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     }
+
+    // Tear down the native full-frame scanner (direct getUserMedia)
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    const container = document.getElementById(SCANNER_ID);
+    const nativeVideo = container?.querySelector('video.native-video');
+    if (nativeVideo) nativeVideo.remove();
 
     const scanner = scannerRef.current;
     if (!scanner) {
@@ -118,31 +129,51 @@ export default function BarcodePage() {
   }, [showToast, stopScanner, detectCodeType]);
 
   /**
-   * Native BarcodeDetector fast path — runs a requestAnimationFrame loop
-   * directly on the <video> element, bypassing html5-qrcode's canvas pipeline.
-   * Cuts per-frame detection from ~80-100ms → ~5-15ms on Chrome/Edge/Android.
-   * Only activated when window.BarcodeDetector is available.
+   * Native full-frame scanner (like professional scanner sites):
+   * opens the camera directly via getUserMedia and scans the ENTIRE video
+   * frame with BarcodeDetector every animation frame — no small scan box,
+   * no html5-qrcode canvas overhead. Very fast on Chrome/Edge/Android.
    */
-  const initNativeFastPath = useCallback((videoEl) => {
-    if (!('BarcodeDetector' in window) || !videoEl) return;
+  const startNativeScanner = useCallback(async () => {
+    const container = document.getElementById(SCANNER_ID);
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: 'environment' },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
+      },
+      audio: false,
+    });
+    streamRef.current = stream;
+
+    const video = document.createElement('video');
+    video.className = 'native-video';
+    video.setAttribute('playsinline', 'true'); // iOS: play inline instead of fullscreen
+    video.muted = true;
+    video.autoplay = true;
+    video.srcObject = stream;
+    container.innerHTML = '';
+    container.appendChild(video);
+    await video.play();
 
     let detector;
     try {
       detector = new window.BarcodeDetector({ formats: NATIVE_FORMATS });
     } catch (_) {
-      return; // unsupported format list, bail gracefully
+      detector = new window.BarcodeDetector(); // fall back to all supported formats
     }
 
     const loop = async () => {
-      // Stop if scanner was torn down or a code was already found
-      if (!scannerRef.current || hasScannedRef.current) return;
+      if (!streamRef.current || hasScannedRef.current) return;
 
-      if (videoEl.readyState >= 2 && videoEl.videoWidth > 0) {
+      if (video.readyState >= 2 && video.videoWidth > 0) {
         try {
-          const barcodes = await detector.detect(videoEl);
+          const barcodes = await detector.detect(video);
           if (barcodes.length > 0 && !hasScannedRef.current) {
-            const { rawValue, format } = barcodes[0];
-            handleDetectedCode(rawValue, format?.toUpperCase?.() || null);
+            // Pick the biggest (closest) barcode in the frame
+            const area = (b) => (b.boundingBox?.width || 0) * (b.boundingBox?.height || 0);
+            const best = barcodes.reduce((a, b) => (area(b) > area(a) ? b : a));
+            handleDetectedCode(best.rawValue, best.format?.toUpperCase?.() || null);
             return; // don't schedule next frame — scanner will be stopped
           }
         } catch (_) {
@@ -152,9 +183,11 @@ export default function BarcodePage() {
 
       rafRef.current = requestAnimationFrame(loop);
     };
-
     rafRef.current = requestAnimationFrame(loop);
-  }, [handleDetectedCode]);
+
+    setScannerRunning(true);
+    showToast('Camera ready — hold the barcode anywhere in view.', 'info');
+  }, [showToast, handleDetectedCode]);
 
   const startScanner = useCallback(async () => {
     setCameraError('');
@@ -174,6 +207,19 @@ export default function BarcodePage() {
 
     await stopScanner();
 
+    // Preferred path: direct camera + full-frame native detection (fast)
+    if ('BarcodeDetector' in window) {
+      try {
+        await startNativeScanner();
+        return;
+      } catch (error) {
+        console.error('Native scanner failed:', error);
+        await stopScanner();
+        // fall through to html5-qrcode fallback
+      }
+    }
+
+    // Fallback: html5-qrcode (browsers without BarcodeDetector, e.g. iOS Safari)
     try {
       const scanner = new Html5Qrcode(SCANNER_ID, {
         formatsToSupport: FORMATS,
@@ -183,14 +229,13 @@ export default function BarcodePage() {
       scannerRef.current = scanner;
 
       const width = Math.min(window.innerWidth - 48, 520);
-      const qrbox = Math.max(220, Math.min(360, Math.floor(width * 0.78)));
+      const qrbox = Math.max(240, Math.min(420, Math.floor(width * 0.85)));
 
       await scanner.start(
         { facingMode: 'environment' },
         {
           fps: 30,
-          qrbox: { width: qrbox, height: Math.floor(qrbox * 0.62) },
-          aspectRatio: 1.777,
+          qrbox: { width: qrbox, height: Math.floor(qrbox * 0.6) },
           // false = also detect flipped/rotated barcodes (common on packaging)
           disableFlip: false,
           videoConstraints: {
@@ -209,19 +254,13 @@ export default function BarcodePage() {
 
       setScannerRunning(true);
       showToast('Camera ready. Point at a QR or barcode.', 'info');
-
-      // Start the native BarcodeDetector fast path in parallel.
-      // It reads directly from the <video> element html5-qrcode created,
-      // so whichever path detects first wins.
-      const videoEl = document.querySelector(`#${SCANNER_ID} video`);
-      initNativeFastPath(videoEl);
     } catch (error) {
       console.error('Scanner start failed:', error);
       setCameraError('Could not start camera. Allow camera permission, close other camera apps, and try again.');
       showToast('Could not start camera.', 'error');
       await stopScanner();
     }
-  }, [showToast, stopScanner, handleDetectedCode, initNativeFastPath]);
+  }, [showToast, stopScanner, handleDetectedCode, startNativeScanner]);
 
   const scanFromFile = async (file) => {
     if (!file) return;
@@ -535,8 +574,8 @@ export default function BarcodePage() {
                 </button>
               </div>
               <div className="scanner-tips">
-                <div><CheckCircle2 size={15} /> Use good lighting</div>
-                <div><CheckCircle2 size={15} /> Keep barcode inside the box</div>
+                <div><CheckCircle2 size={15} /> Hold the barcode anywhere in view</div>
+                <div><CheckCircle2 size={15} /> Use good lighting, keep it steady</div>
                 <div><CheckCircle2 size={15} /> Works best on HTTPS or localhost</div>
               </div>
             </div>

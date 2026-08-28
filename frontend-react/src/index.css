@@ -5255,6 +5255,15 @@ h1, h2, h3, h4, .barcode-title, .hero-title, .logo-text, .section-label {
     .nf-btn { justify-content: center; }
 }
 
+/* ---------- Native full-frame scanner video ---------- */
+.camera-reader .native-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    border-radius: inherit;
+}
+
 /* ---------- Recent Scans strip ---------- */
 .recent-scans {
     max-width: 780px;
