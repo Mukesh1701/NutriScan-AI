@@ -5168,3 +5168,90 @@ h1, h2, h3, h4, .barcode-title, .hero-title, .logo-text, .section-label {
     36%      { transform: scale(1.18); }
     48%      { transform: scale(1); }
 }
+/* ---------- Product not found card ---------- */
+.notfound-card {
+    max-width: 620px;
+    margin: 0 auto 30px auto;
+    text-align: center;
+    padding: 32px 28px;
+    border: 1px solid rgba(245, 158, 11, 0.25);
+    background: linear-gradient(180deg, rgba(255, 251, 235, 0.9), rgba(255, 255, 255, 0.9));
+    animation: fadeSlideUp 0.5s cubic-bezier(0.34, 1.2, 0.64, 1);
+}
+
+.nf-icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 14px;
+    display: grid;
+    place-items: center;
+    border-radius: 20px;
+    background: rgba(245, 158, 11, 0.1);
+    color: #d97706;
+}
+
+.nf-title {
+    font-size: 20px;
+    font-weight: 800;
+    margin-bottom: 8px;
+    color: var(--text-primary);
+}
+
+.nf-desc {
+    font-size: 14px;
+    line-height: 1.65;
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+}
+
+.nf-desc strong {
+    color: var(--text-primary);
+    font-weight: 800;
+    user-select: all;
+}
+
+.nf-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+}
+
+.nf-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 18px;
+    border-radius: 14px;
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: none;
+    color: var(--text-primary);
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.nf-btn:hover {
+    transform: translateY(-2px);
+    border-color: var(--border-accent);
+    box-shadow: 0 8px 24px rgba(124, 58, 237, 0.15);
+}
+
+.nf-btn.nf-primary {
+    background: var(--gradient-main);
+    color: #fff;
+    border: none;
+    box-shadow: 0 6px 20px rgba(124, 58, 237, 0.3);
+}
+
+.nf-btn.nf-primary:hover {
+    box-shadow: 0 10px 30px rgba(124, 58, 237, 0.4);
+}
+
+@media (max-width: 640px) {
+    .nf-actions { flex-direction: column; align-items: stretch; }
+    .nf-btn { justify-content: center; }
+}
+

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AlertTriangle, Camera, CheckCircle2, Copy, Image, PackageSearch, QrCode, RotateCcw, Search, ShieldCheck, StopCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { AlertTriangle, Camera, CheckCircle2, Copy, ExternalLink, Image, PackageSearch, PlusCircle, QrCode, RotateCcw, Search, ShieldCheck, Sparkles, StopCircle } from 'lucide-react';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { useApp } from '../context/AppContext';
 import { GRADE_INFO, NOVA_LABELS } from '../lib/config';
@@ -19,6 +20,30 @@ const FORMATS = [
 // Native BarcodeDetector formats (Chrome/Edge/Android) — mirrors the list above
 const NATIVE_FORMATS = ['qr_code', 'ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128'];
 
+const SCAN_HISTORY_KEY = 'nutriscan_scan_history';
+const MAX_HISTORY = 50;
+
+// Persist a scanned product to local scan history (best-effort, never throws)
+function saveBarcodeToHistory(product, barcode) {
+  try {
+    const entry = {
+      id: Date.now(),
+      barcode,
+      name: product?.product_name || 'Unknown Product',
+      brand: product?.brands || '',
+      grade: (product?.nutriscore_grade || '').toUpperCase(),
+      image: product?.image_url || '',
+      timestamp: new Date().toISOString(),
+    };
+    const history = JSON.parse(localStorage.getItem(SCAN_HISTORY_KEY) || '[]');
+    const deduped = Array.isArray(history) ? history.filter((h) => h.barcode !== barcode) : [];
+    localStorage.setItem(SCAN_HISTORY_KEY, JSON.stringify([entry, ...deduped].slice(0, MAX_HISTORY)));
+  } catch (e) {
+    console.warn('Failed to save scan history:', e);
+  }
+}
+
+
 export default function BarcodePage() {
   const { showToast } = useApp();
   const [barcodeInput, setBarcodeInput] = useState('');
@@ -28,6 +53,7 @@ export default function BarcodePage() {
   const [lookupLoading, setLookupLoading] = useState(false);
   const [product, setProduct] = useState(null);
   const [showResults, setShowResults] = useState(false);
+  const [notFound, setNotFound] = useState('');
   const [cameraError, setCameraError] = useState('');
   const [copied, setCopied] = useState(false);
   const scannerRef = useRef(null);
@@ -135,6 +161,7 @@ export default function BarcodePage() {
     setProduct(null);
     setDetectedCode('');
     setCodeType('');
+    setNotFound('');
     hasScannedRef.current = false;
     scanCountRef.current = 0;
 
@@ -163,7 +190,8 @@ export default function BarcodePage() {
           fps: 30,
           qrbox: { width: qrbox, height: Math.floor(qrbox * 0.62) },
           aspectRatio: 1.777,
-          disableFlip: true,
+          // false = also detect flipped/rotated barcodes (common on packaging)
+          disableFlip: false,
           videoConstraints: {
             facingMode: { ideal: 'environment' },
             // Higher resolution = better barcode detection at distance
@@ -233,9 +261,18 @@ export default function BarcodePage() {
       return;
     }
 
-    setLookupLoading(true);
     setBarcodeInput(barcode);
     setDetectedCode(barcode);
+    setNotFound('');
+
+    // QR codes often contain links, not products — help the user instead of a dead-end error
+    if (/^https?:\/\//i.test(barcode)) {
+      setNotFound(barcode);
+      showToast('This QR contains a link, not a product code.', 'info');
+      return;
+    }
+
+    setLookupLoading(true);
 
     try {
       let found;
@@ -250,7 +287,8 @@ export default function BarcodePage() {
       }
 
       if (!found) {
-        showToast('Code detected, but product was not found.', 'error');
+        setNotFound(barcode);
+        showToast('Product not found in the database.', 'info');
         return;
       }
 
@@ -260,6 +298,7 @@ export default function BarcodePage() {
       showToast('Product found.', 'success');
     } catch (error) {
       console.error('Product lookup failed:', error);
+      setNotFound(barcode);
       showToast('Could not connect to product database.', 'error');
     } finally {
       setLookupLoading(false);
@@ -274,6 +313,7 @@ export default function BarcodePage() {
     setCodeType('');
     setBarcodeInput('');
     setCameraError('');
+    setNotFound('');
     setCopied(false);
     hasScannedRef.current = false;
     scanCountRef.current = 0;
@@ -294,9 +334,13 @@ export default function BarcodePage() {
   useEffect(() => () => { stopScanner(); }, [stopScanner]);
 
   const nuts = product?.nutriments || {};
-  const grade = (product?.nutriscore_grade || 'e').toLowerCase();
-  const gradeUpper = grade.toUpperCase();
-  const gradeInfo = GRADE_INFO[gradeUpper] || GRADE_INFO.E;
+  const rawGrade = (product?.nutriscore_grade || '').toLowerCase();
+  const isValidGrade = ['a', 'b', 'c', 'd', 'e', 'f'].includes(rawGrade);
+  const grade = isValidGrade ? rawGrade : 'e';
+  const gradeUpper = isValidGrade ? rawGrade.toUpperCase() : '?';
+  const gradeInfo = isValidGrade
+    ? (GRADE_INFO[gradeUpper] || GRADE_INFO.E)
+    : { label: 'Grade Not Available', description: 'This product does not have enough nutrition data in the database to compute a health grade yet.' };
   const kcal = nuts['energy-kcal_100g'] ?? (nuts.energy_100g ? nuts.energy_100g / 4.184 : null);
   const fmt = (value) => value === undefined || value === null || Number.isNaN(Number(value)) ? '?' : Number(value).toFixed(1);
   const badge = (value, medium, high) => {
@@ -356,6 +400,47 @@ export default function BarcodePage() {
               <div className="hiw-icon"><CheckCircle2 size={22} /></div>
               <h4>Decide</h4>
               <p>Get alerts and choose smarter, healthier options.</p>
+            </div>
+          </div>
+        )}
+
+        {notFound && !showResults && (
+          <div className="notfound-card clean-card">
+            <div className="nf-icon"><PackageSearch size={32} /></div>
+            <h3 className="nf-title">
+              {/^https?:\/\//i.test(notFound) ? 'This QR contains a link' : 'Product not found in the database'}
+            </h3>
+            <p className="nf-desc">
+              {/^https?:\/\//i.test(notFound) ? (
+                <>The scanned code is a website link, not a product barcode. You can open it below, or scan a product's EAN/UPC barcode instead.</>
+              ) : (
+                <>Code <strong>{notFound}</strong> isn't in Open Food Facts yet — this is common for regional brands and newly launched products. You can help everyone by adding it, or try our AI photo classifier instead.</>
+              )}
+            </p>
+            <div className="nf-actions">
+              {!/^https?:\/\//i.test(notFound) && (
+                <Link className="nf-btn nf-primary" to="/classify">
+                  <Sparkles size={16} /> Try AI Photo Classifier
+                </Link>
+              )}
+              {/^https?:\/\//i.test(notFound) && (
+                <a className="nf-btn nf-primary" href={notFound} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink size={16} /> Open Link
+                </a>
+              )}
+              {!/^https?:\/\//i.test(notFound) && (
+                <a
+                  className="nf-btn"
+                  href={`https://world.openfoodfacts.org/cgi/product.pl?barcode=${encodeURIComponent(notFound)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <PlusCircle size={16} /> Add it to Open Food Facts
+                </a>
+              )}
+              <button type="button" className="nf-btn" onClick={resetScanner}>
+                <RotateCcw size={16} /> Scan Another Code
+              </button>
             </div>
           </div>
         )}
