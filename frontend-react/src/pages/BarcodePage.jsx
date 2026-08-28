@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, Camera, CheckCircle2, Copy, ExternalLink, Image, PackageSearch, PlusCircle, QrCode, RotateCcw, Search, ShieldCheck, Sparkles, StopCircle } from 'lucide-react';
+import { AlertTriangle, Camera, CheckCircle2, Copy, ExternalLink, History, Image, PackageSearch, PlusCircle, QrCode, RotateCcw, Search, ShieldCheck, Sparkles, StopCircle } from 'lucide-react';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { useApp } from '../context/AppContext';
 import { GRADE_INFO, NOVA_LABELS } from '../lib/config';
@@ -56,6 +56,7 @@ export default function BarcodePage() {
   const [notFound, setNotFound] = useState('');
   const [cameraError, setCameraError] = useState('');
   const [copied, setCopied] = useState(false);
+  const [scanHistory, setScanHistory] = useState([]);
   const scannerRef = useRef(null);
   const fileInputRef = useRef(null);
   const hasScannedRef = useRef(false);
@@ -253,6 +254,24 @@ export default function BarcodePage() {
   // Keep ref in sync with state so lookupBarcode always reads fresh value
   useEffect(() => { barcodeInputRef.current = barcodeInput; }, [barcodeInput]);
 
+  // Load saved scan history for the Recent Scans strip
+  const loadScanHistory = useCallback(() => {
+    try {
+      const history = JSON.parse(localStorage.getItem(SCAN_HISTORY_KEY) || '[]');
+      setScanHistory(Array.isArray(history) ? history : []);
+    } catch (_) {
+      setScanHistory([]);
+    }
+  }, []);
+
+  useEffect(() => { loadScanHistory(); }, [loadScanHistory]);
+
+  const clearScanHistory = () => {
+    try { localStorage.removeItem(SCAN_HISTORY_KEY); } catch (_) {}
+    setScanHistory([]);
+    showToast('Scan history cleared.', 'info');
+  };
+
   const lookupBarcode = useCallback(async (code) => {
     // Prefer the explicitly passed code, then the ref (always fresh), then state
     const barcode = String(code ?? barcodeInputRef.current ?? barcodeInput).trim();
@@ -295,6 +314,7 @@ export default function BarcodePage() {
       setProduct(found);
       setShowResults(true);
       saveBarcodeToHistory(found, barcode);
+      loadScanHistory();
       showToast('Product found.', 'success');
     } catch (error) {
       console.error('Product lookup failed:', error);
@@ -583,6 +603,37 @@ export default function BarcodePage() {
             <button type="button" className="scan-primary-btn scan-again-wide" onClick={resetScanner}>
               <RotateCcw size={18} /> Scan Another Product
             </button>
+          </div>
+        )}
+
+        {!showResults && scanHistory.length > 0 && (
+          <div className="recent-scans clean-card">
+            <div className="recent-scans-header">
+              <h3 className="section-label"><History size={16} /> Recent Scans</h3>
+              <button type="button" className="rs-clear" onClick={clearScanHistory}>Clear</button>
+            </div>
+            <div className="rs-track">
+              {scanHistory.slice(0, 10).map((h) => (
+                <button
+                  key={h.barcode}
+                  type="button"
+                  className="rs-card"
+                  onClick={() => lookupBarcode(h.barcode)}
+                  title={`Look up ${h.name || h.barcode}`}
+                >
+                  {h.image ? (
+                    <img className="rs-img" src={h.image} alt="" loading="lazy" onError={(e) => { e.target.style.display = 'none'; }} />
+                  ) : (
+                    <span className="rs-fallback"><PackageSearch size={20} /></span>
+                  )}
+                  <span className="rs-name">{h.name || 'Unknown Product'}</span>
+                  {h.brand && <span className="rs-brand">{h.brand}</span>}
+                  {['A', 'B', 'C', 'D', 'E', 'F'].includes(h.grade) && (
+                    <span className={`rs-grade rs-grade-${h.grade.toLowerCase()}`}>{h.grade}</span>
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </section>
