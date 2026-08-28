@@ -317,11 +317,48 @@ export default function BarcodePage() {
   return (
     <div id="page-barcode">
       <section className="barcode-section clean-page">
-        <div className="barcode-hero clean-hero">
+        <div className="barcode-hero clean-hero hero-premium">
+          <div className="hero-emojis" aria-hidden="true">
+            <span className="fe fe-1">🍎</span>
+            <span className="fe fe-2">🥑</span>
+            <span className="fe fe-3">🍓</span>
+            <span className="fe fe-4">🥕</span>
+            <span className="fe fe-5">🍇</span>
+          </div>
           <span className="clean-eyebrow"><QrCode size={16} /> Fast QR & Barcode Scanner</span>
-          <h2 className="barcode-title">Scan products with your <span className="gradient-text">camera</span></h2>
-          <p className="barcode-subtitle">Open the camera, point at a QR code or food barcode, and the detected code appears instantly before product lookup.</p>
+          <h2 className="barcode-title hero-display">Know what's really <span className="gradient-shimmer">in your food</span></h2>
+          <p className="barcode-subtitle">Point your camera at any product barcode and instantly get its health grade, nutrition breakdown, and ingredient alerts.</p>
+          <div className="hero-trust-chips">
+            <span className="trust-chip"><CheckCircle2 size={14} /> 100% Free</span>
+            <span className="trust-chip"><ShieldCheck size={14} /> No sign-up</span>
+            <span className="trust-chip"><PackageSearch size={14} /> 3M+ products</span>
+          </div>
         </div>
+
+        {!showResults && (
+          <div className="how-it-works">
+            <div className="hiw-step">
+              <span className="hiw-num">1</span>
+              <div className="hiw-icon"><Camera size={22} /></div>
+              <h4>Scan</h4>
+              <p>Point your camera at any food barcode or QR code.</p>
+            </div>
+            <div className="hiw-arrow" aria-hidden="true">→</div>
+            <div className="hiw-step">
+              <span className="hiw-num">2</span>
+              <div className="hiw-icon"><Search size={22} /></div>
+              <h4>Analyze</h4>
+              <p>AI grades the product and breaks down its nutrition.</p>
+            </div>
+            <div className="hiw-arrow" aria-hidden="true">→</div>
+            <div className="hiw-step">
+              <span className="hiw-num">3</span>
+              <div className="hiw-icon"><CheckCircle2 size={22} /></div>
+              <h4>Decide</h4>
+              <p>Get alerts and choose smarter, healthier options.</p>
+            </div>
+          </div>
+        )}
 
         {!showResults ? (
           <div className="scan-layout">

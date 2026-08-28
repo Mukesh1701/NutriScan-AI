@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Header from './components/Header';
+import Footer from './components/Footer';
 import Toast from './components/Toast';
 import ClassifyPage from './pages/ClassifyPage';
 import CalculatorPage from './pages/CalculatorPage';
@@ -49,6 +50,7 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
+      <Footer />
       <Toast />
     </>
   );
