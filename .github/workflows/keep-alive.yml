@@ -1,0 +1,22 @@
+name: Keep ML API Warm
+
+# Render's free tier spins down the ML service after 15 minutes of
+# inactivity, which makes the first visitor wait 60-90 seconds.
+# This workflow pings the health endpoint every 10 minutes so the
+# service stays warm 24/7 (well within Render's 750 free hours/month).
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch: # allows manual trigger from the Actions tab
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping ML API health endpoint
+        run: |
+          echo "Pinging NutriScan ML API..."
+          curl -sf --max-time 60 https://nutriscan-ml-api.onrender.com/ping \
+            && echo "✅ API is warm" \
+            || echo "⚠️ Ping failed — check the Render service status"

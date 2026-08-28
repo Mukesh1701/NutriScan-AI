@@ -1,6 +1,28 @@
 # NutriScan AI
 
+<div align="center">
+
+[![Live Demo](https://img.shields.io/badge/🌐_Live_Demo-nutriscan--ai.in-10b981?style=for-the-badge&labelColor=0a231c)](https://www.nutriscan-ai.in)
+[![React](https://img.shields.io/badge/React-19-61dafb?style=for-the-badge&logo=react&logoColor=white&labelColor=20232a)](https://react.dev)
+[![FastAPI](https://img.shields.io/badge/FastAPI-Python-009688?style=for-the-badge&logo=fastapi&logoColor=white&labelColor=1a2b33)](https://fastapi.tiangolo.com)
+[![PyTorch](https://img.shields.io/badge/PyTorch-CNN-ee4c2c?style=for-the-badge&logo=pytorch&logoColor=white&labelColor=2a1a1a)](https://pytorch.org)
+
+**Scan it. Grade it. Eat smarter.**
+
+</div>
+
+🔗 **Try it live:** [https://www.nutriscan-ai.in](https://www.nutriscan-ai.in) — free, no sign-up, works in your browser.
+
 NutriScan AI is an AI-powered food analysis platform that combines deep learning, computer vision, nutrition analysis, barcode scanning, and generative AI to help users understand the food they consume.
+
+## ✨ Highlights
+
+- 📷 **AI food photo classification** (PyTorch CNN, transfer learning)
+- 🏷️ **Barcode scanner** with instant A–F health grade & NOVA processing score
+- ⚖️ **Food weight estimation** from images
+- 🧠 **AI nutrition assistant** with contextual recommendations
+- 📊 **Interactive nutrition calculator & charts**
+
 
 ## Features
 
@@ -271,7 +293,6 @@ For medical conditions, allergies, dietary treatment, or personalized medical nu
 - Add authentication and user accounts.
 - Add personalized nutrition goals.
 - Improve barcode product coverage.
-- Deploy frontend and backend to production.
 - Add cloud-based model inference as an optional alternative.
 - Add automated model performance monitoring.
 
