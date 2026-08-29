@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800;900&family=Inter:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet"
+  />
+
+  <!-- Primary SEO -->
+  <title>NutriScan AI - Free Food Barcode Scanner & Nutrition Analyzer</title>
+  <meta
+    name="description"
+    content="NutriScan AI is a free AI-powered food barcode scanner. Scan any packaged food to instantly get its health grade, NOVA score, calories, sugar, protein, and ingredient alerts."
+  />
+  <link rel="canonical" href="https://www.nutriscan-ai.in/" />
+
+  <!-- Open Graph (Facebook, WhatsApp, LinkedIn) -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="NutriScan AI" />
+  <meta property="og:locale" content="en_IN" />
+  <meta property="og:title" content="NutriScan AI - Free Food Barcode Scanner & Nutrition Analyzer" />
+  <meta property="og:description" content="Scan any food barcode and instantly understand its nutrition, health grade, and ingredients. Free. No sign-up. Works in your browser." />
+  <meta property="og:url" content="https://www.nutriscan-ai.in/" />
+  <meta property="og:image" content="https://www.nutriscan-ai.in/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="NutriScan AI - AI-powered food barcode scanner and nutrition analyzer" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="NutriScan AI - Free Food Barcode Scanner" />
+  <meta name="twitter:description" content="Scan any food barcode and instantly understand its nutrition, health grade, and ingredients." />
+  <meta name="twitter:image" content="https://www.nutriscan-ai.in/og-image.png" />
+  <meta name="twitter:image:alt" content="NutriScan AI - AI-powered food barcode scanner and nutrition analyzer" />
+
+  <!-- Additional SEO -->
+  <meta name="robots" content="index, follow" />
+  <meta name="author" content="Veeravalli Mukesh" />
+  <meta name="keywords" content="food barcode scanner, food label analyzer, nutrition scanner, healthy food checker, food health grade, NOVA score, NutriScan AI" />
+  <meta name="theme-color" content="#0a231c" />
+
+
+  <!-- Google Analytics -->
+  <script
+    async
+    src="https://www.googletagmanager.com/gtag/js?id=G-GMX7JXMTN1"
+  ></script>
+
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+      dataLayer.push(arguments);
+    }
+
+    gtag("js", new Date());
+    gtag("config", "G-GMX7JXMTN1");
+  </script>
+
+  <!-- Google AdSense -->
+  <script
+    async
+  src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5541295231382597"
+    crossorigin="anonymous">
+  </script>
+
+  <!-- JSON-LD Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "NutriScan AI",
+    "url": "https://www.nutriscan-ai.in/",
+    "description": "Free AI-powered food barcode scanner and nutrition analyzer. Scan packaged food products to get health grades, NOVA scores, ingredient alerts, and nutritional breakdowns.",
+    "applicationCategory": "HealthApplication",
+    "operatingSystem": "Web",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "INR"
+    },
+    "author": {
+      "@type": "Person",
+      "name": "Veeravalli Mukesh",
+      "url": "https://github.com/Mukesh1701"
+    },
+    "featureList": [
+      "Food barcode scanner",
+      "AI food label analyzer",
+      "Health grade (A-E) scoring",
+      "NOVA processing level",
+      "Ingredient alerts",
+      "Calorie and macro tracking",
+      "AI food classifier"
+    ]
+  }
+  </script>
+  <script type="module" crossorigin src="/assets/index-saFYhHKS.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-BK_fBwaI.css">
+</head>
+
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

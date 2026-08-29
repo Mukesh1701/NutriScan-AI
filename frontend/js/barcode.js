@@ -207,26 +207,74 @@ async function scanBarcodeFromFile(file) {
 
 // ---- Open Food Facts API lookup ----
 
+// Mirrors tried in order (world → country mirrors spread load and give
+// resilience against rate limiting); only the fields we render are requested
+// to keep payloads small; lc=en asks for English product names.
+const OFF_MIRRORS  = ["world", "in", "us", "fr"];
+const OFF_FIELDS   = "code,product_name,brands,image_url,categories,nutriscore_grade,nova_group,additives_n,additives_tags,allergens,ingredients_analysis_tags,nutriments,labels";
+const OFF_TIMEOUT  = 10000;
+
+function _offSleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
+
+// Single lookup against one mirror/version. Returns:
+//   { product }                    → product found
+//   { rateLimited: true }          → HTTP 429 — NOT "not found", user should retry
+//   { networkError|timedOut: true }→ could not reach the API
+//   null                           → not in the database (404 / status 0)
+async function _offFetch(barcode, version, mirror) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), OFF_TIMEOUT);
+    try {
+        const url = `https://${mirror}.openfoodfacts.org/api/${version}/product/${encodeURIComponent(barcode)}.json?fields=${OFF_FIELDS}&lc=en`;
+        const response = await fetch(url, { signal: controller.signal });
+        if (response.status === 429) return { rateLimited: true };
+        if (!response.ok) return null;
+        const json = await response.json();
+        if (json && json.status === 1 && json.product) return { product: json.product };
+        return null;
+    } catch (error) {
+        return (error && error.name === "AbortError") ? { timedOut: true } : { networkError: true };
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
 async function lookupBarcodeProduct(barcode) {
     showToast("Looking up product in database…");
 
+    let data = null;
+    let rateLimited = false;
+    let networkIssue = false;
+    let attempts = 0;
+
     try {
-        // Try v2 first, then fall back to v0
-        let data;
-        for (const version of ["v2", "v0"]) {
-            const response = await fetch(
-                `https://world.openfoodfacts.org/api/${version}/product/${barcode}.json`
-            );
-            if (response.ok) {
-                const json = await response.json();
-                if (json && json.status === 1) { data = json; break; }
+        // Try mirrors + versions with a short pause between attempts so we
+        // never hammer the free Open Food Facts API.
+        for (const mirror of OFF_MIRRORS) {
+            for (const version of ["v2", "v0"]) {
+                const result = await _offFetch(barcode, version, mirror);
+                attempts += 1;
+                if (result && result.product) { data = result; break; }
+                if (result && result.rateLimited) rateLimited = true;
+                if (result && (result.networkError || result.timedOut)) networkIssue = true;
+                if (attempts < OFF_MIRRORS.length * 2) await _offSleep(200);
             }
+            if (data) break;
         }
 
         if (data && data.status === 1 && data.product) {
             showToast("Product found!");
             renderBarcodeResult(data.product);
             saveBarcodeToHistory(data.product);
+            return;
+        }
+
+        if (rateLimited) {
+            console.warn("Open Food Facts rate limit hit for", barcode);
+            showToast("Open Food Facts is busy right now. Please try again in a few seconds.");
+        } else if (networkIssue) {
+            console.warn("Network error reaching Open Food Facts for", barcode);
+            showToast("Error connecting to product database. Check your internet connection.");
         } else {
             showToast("Product not found. Try a different barcode.");
         }

@@ -20,6 +20,27 @@ const FORMATS = [
 // Native BarcodeDetector formats (Chrome/Edge/Android) — mirrors the list above
 const NATIVE_FORMATS = ['qr_code', 'ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128'];
 
+// Food-barcode formats we actually care about. BarcodeDetector exists on
+// desktop Chrome/Edge but ONLY supports qr_code there, so we must verify real
+// format support via getSupportedFormats() before using the native full-frame
+// scanner — otherwise EAN/UPC food barcodes are never detected on desktop.
+const FOOD_NATIVE_FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39'];
+
+// Open Food Facts lookup tuning:
+//  - mirrors tried in order (world → country mirrors spread load and provide
+//    some resilience against rate limiting/outages)
+//  - only the fields we actually render (keeps payloads small and fast)
+//  - lc=en asks for English product names where available
+const OFF_MIRRORS = ['world', 'in', 'us', 'fr'];
+const OFF_FIELDS = [
+  'code', 'product_name', 'brands', 'image_url', 'categories',
+  'nutriscore_grade', 'nova_group', 'additives_n', 'additives_tags',
+  'allergens', 'ingredients_analysis_tags', 'nutriments', 'labels',
+].join(',');
+const OFF_TIMEOUT_MS = 10000;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 const SCAN_HISTORY_KEY = 'nutriscan_scan_history';
 const MAX_HISTORY = 50;
 
@@ -54,6 +75,8 @@ export default function BarcodePage() {
   const [product, setProduct] = useState(null);
   const [showResults, setShowResults] = useState(false);
   const [notFound, setNotFound] = useState('');
+  // '' | 'rate-limited' | 'network' — distinguishes "not in DB" from API issues
+  const [lookupIssue, setLookupIssue] = useState('');
   const [cameraError, setCameraError] = useState('');
   const [copied, setCopied] = useState(false);
   const [scanHistory, setScanHistory] = useState([]);
@@ -196,6 +219,7 @@ export default function BarcodePage() {
     setDetectedCode('');
     setCodeType('');
     setNotFound('');
+    setLookupIssue('');
     hasScannedRef.current = false;
     scanCountRef.current = 0;
 
@@ -207,15 +231,41 @@ export default function BarcodePage() {
 
     await stopScanner();
 
-    // Preferred path: direct camera + full-frame native detection (fast)
+    // Preferred path: native full-frame BarcodeDetector — but ONLY when the
+    // browser actually supports the food barcode formats. Desktop Chrome/Edge
+    // ships BarcodeDetector yet only supports qr_code, so we gate on
+    // getSupportedFormats() and otherwise fall through to html5-qrcode, whose
+    // ZXing decoder reads EAN/UPC barcodes on every platform (desktop too).
     if ('BarcodeDetector' in window) {
-      try {
-        await startNativeScanner();
-        return;
-      } catch (error) {
-        console.error('Native scanner failed:', error);
-        await stopScanner();
-        // fall through to html5-qrcode fallback
+      let canScanFoodBarcodes = false;
+      if (typeof window.BarcodeDetector.getSupportedFormats === 'function') {
+        try {
+          const supportedFormats = await window.BarcodeDetector.getSupportedFormats();
+          canScanFoodBarcodes = Array.isArray(supportedFormats) &&
+            supportedFormats.some((f) => FOOD_NATIVE_FORMATS.includes(f));
+          if (!canScanFoodBarcodes && supportedFormats?.length) {
+            console.info(
+              `BarcodeDetector only supports: ${supportedFormats.join(', ')} — using html5-qrcode for EAN/UPC.`
+            );
+          }
+        } catch (error) {
+          console.warn('Could not query BarcodeDetector format support:', error);
+        }
+      } else {
+        // Very old build of the API — trust that EAN/UPC formats listed below
+        // are supported and let the native path throw if they aren't.
+        canScanFoodBarcodes = true;
+      }
+
+      if (canScanFoodBarcodes) {
+        try {
+          await startNativeScanner();
+          return;
+        } catch (error) {
+          console.error('Native scanner failed:', error);
+          await stopScanner();
+          // fall through to html5-qrcode fallback
+        }
       }
     }
 
@@ -311,6 +361,33 @@ export default function BarcodePage() {
     showToast('Scan history cleared.', 'info');
   };
 
+  // Single Open Food Facts product lookup against one mirror/version.
+  // Returns:
+  //   { product }  → product found
+  //   { rateLimited: true } → HTTP 429 (do NOT show "not found"; user should retry)
+  //   { networkError: true } / { timedOut: true } → could not reach the API
+  //   null → product simply isn't in the database (404 / status 0)
+  const fetchOffProduct = useCallback(async (barcode, version, mirror) => {
+    const url =
+      `https://${mirror}.openfoodfacts.org/api/${version}/product/${encodeURIComponent(barcode)}.json` +
+      `?fields=${OFF_FIELDS}&lc=en`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), OFF_TIMEOUT_MS);
+    try {
+      const response = await fetch(url, { signal: controller.signal });
+      if (response.status === 429) return { rateLimited: true };
+      if (!response.ok) return null;
+      const json = await response.json();
+      if (json?.status === 1 && json.product) return { product: json.product };
+      return null;
+    } catch (error) {
+      if (error?.name === 'AbortError') return { timedOut: true };
+      return { networkError: true };
+    } finally {
+      clearTimeout(timer);
+    }
+  }, []);
+
   const lookupBarcode = useCallback(async (code) => {
     // Prefer the explicitly passed code, then the ref (always fresh), then state
     const barcode = String(code ?? barcodeInputRef.current ?? barcodeInput).trim();
@@ -322,6 +399,7 @@ export default function BarcodePage() {
     setBarcodeInput(barcode);
     setDetectedCode(barcode);
     setNotFound('');
+    setLookupIssue('');
 
     // QR codes often contain links, not products — help the user instead of a dead-end error
     if (/^https?:\/\//i.test(barcode)) {
@@ -333,20 +411,37 @@ export default function BarcodePage() {
     setLookupLoading(true);
 
     try {
-      let found;
-      for (const version of ['v2', 'v0']) {
-        const response = await fetch(`https://world.openfoodfacts.org/api/${version}/product/${encodeURIComponent(barcode)}.json`);
-        if (!response.ok) continue;
-        const json = await response.json();
-        if (json?.status === 1 && json.product) {
-          found = json.product;
-          break;
+      let found = null;
+      let rateLimited = false;
+      let networkIssue = false;
+      let attempts = 0;
+
+      // Try mirrors/versions with a tiny pause between attempts so we never
+      // hammer the database — important because OFF rate-limits per IP.
+      for (const mirror of OFF_MIRRORS) {
+        for (const version of ['v2', 'v0']) {
+          const result = await fetchOffProduct(barcode, version, mirror);
+          attempts += 1;
+          if (result?.product) { found = result.product; break; }
+          if (result?.rateLimited) rateLimited = true;
+          if (result?.networkError || result?.timedOut) networkIssue = true;
+          if (attempts < OFF_MIRRORS.length * 2) await sleep(200);
         }
+        if (found) break;
       }
 
       if (!found) {
         setNotFound(barcode);
-        showToast('Product not found in the database.', 'info');
+        if (rateLimited) {
+          setLookupIssue('rate-limited');
+          showToast('Open Food Facts is busy right now — please try again in a few seconds.', 'error');
+        } else if (networkIssue) {
+          setLookupIssue('network');
+          showToast('Could not connect to the product database. Check your connection.', 'error');
+        } else {
+          setLookupIssue('not-found');
+          showToast('Product not found in the database.', 'info');
+        }
         return;
       }
 
@@ -358,11 +453,12 @@ export default function BarcodePage() {
     } catch (error) {
       console.error('Product lookup failed:', error);
       setNotFound(barcode);
+      setLookupIssue('network');
       showToast('Could not connect to product database.', 'error');
     } finally {
       setLookupLoading(false);
     }
-  }, [showToast]);
+  }, [showToast, loadScanHistory, fetchOffProduct, barcodeInput]);
 
   const resetScanner = async () => {
     await stopScanner();
@@ -373,6 +469,7 @@ export default function BarcodePage() {
     setBarcodeInput('');
     setCameraError('');
     setNotFound('');
+    setLookupIssue('');
     setCopied(false);
     hasScannedRef.current = false;
     scanCountRef.current = 0;
@@ -467,17 +564,21 @@ export default function BarcodePage() {
           <div className="notfound-card clean-card">
             <div className="nf-icon"><PackageSearch size={32} /></div>
             <h3 className="nf-title">
-              {/^https?:\/\//i.test(notFound) ? 'This QR contains a link' : 'Product not found in the database'}
+              {/^https?:\/\//i.test(notFound) ? 'This QR contains a link' : lookupIssue === 'rate-limited' ? 'Open Food Facts is busy right now' : lookupIssue === 'network' ? 'Could not reach the product database' : 'Product not found in the database'}
             </h3>
             <p className="nf-desc">
               {/^https?:\/\//i.test(notFound) ? (
                 <>The scanned code is a website link, not a product barcode. You can open it below, or scan a product's EAN/UPC barcode instead.</>
+              ) : lookupIssue === 'rate-limited' ? (
+                <>Too many lookups in a short time tripped a safety limit. Wait a few seconds and try again — most lookups succeed on the first retry.</>
+              ) : lookupIssue === 'network' ? (
+                <>We couldn't reach the Open Food Facts database. Check your internet connection and try again.</>
               ) : (
                 <>Code <strong>{notFound}</strong> isn't in Open Food Facts yet — this is common for regional brands and newly launched products. You can help everyone by adding it, or try our AI photo classifier instead.</>
               )}
             </p>
             <div className="nf-actions">
-              {!/^https?:\/\//i.test(notFound) && (
+              {!/^https?:\/\//i.test(notFound) && !lookupIssue && (
                 <Link className="nf-btn nf-primary" to="/classify">
                   <Sparkles size={16} /> Try AI Photo Classifier
                 </Link>
@@ -487,7 +588,7 @@ export default function BarcodePage() {
                   <ExternalLink size={16} /> Open Link
                 </a>
               )}
-              {!/^https?:\/\//i.test(notFound) && (
+              {!/^https?:\/\//i.test(notFound) && !lookupIssue && (
                 <a
                   className="nf-btn"
                   href={`https://world.openfoodfacts.org/cgi/product.pl?barcode=${encodeURIComponent(notFound)}`}
@@ -498,7 +599,7 @@ export default function BarcodePage() {
                 </a>
               )}
               <button type="button" className="nf-btn" onClick={resetScanner}>
-                <RotateCcw size={16} /> Scan Another Code
+                <RotateCcw size={16} /> {lookupIssue ? 'Try Again' : 'Scan Another Code'}
               </button>
             </div>
           </div>
