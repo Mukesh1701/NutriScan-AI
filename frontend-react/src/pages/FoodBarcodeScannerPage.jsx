@@ -13,7 +13,7 @@ const howItWorks = [
     icon: <QrCode />,
     step: '2',
     title: 'Point at the barcode',
-    desc: 'Hold the product up and align its EAN-13, EAN-8, UPC-A, or UPC-E barcode within the camera frame. Valid check digits and repeated camera reads are required before lookup.',
+    desc: 'Hold the product up and align its EAN-13, EAN-8, UPC-A, or UPC-E barcode within the camera frame. Valid check digits are verified before lookup.',
   },
   {
     icon: <CheckCircle2 />,

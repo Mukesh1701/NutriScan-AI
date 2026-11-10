@@ -77,7 +77,6 @@ export default function BarcodePage() {
   const scannerRef = useRef(null);
   const fileInputRef = useRef(null);
   const hasScannedRef = useRef(false);
-  const barcodeCandidateRef = useRef(null);
   const barcodeInputRef = useRef('');
   const lookupBarcodeRef = useRef(null);
   // Holds the rAF id for the native BarcodeDetector fast path
@@ -117,23 +116,10 @@ export default function BarcodePage() {
     setScannerRunning(false);
   }, []);
 
-  const handleDetectedCode = useCallback((code, format, requireConfirmation = true) => {
+  const handleDetectedCode = useCallback((code, format) => {
     const validated = validateFoodBarcode(code, format);
     if (hasScannedRef.current) return false;
-    if (!validated) {
-      barcodeCandidateRef.current = null;
-      return false;
-    }
-
-    const now = Date.now();
-    const previous = barcodeCandidateRef.current;
-    const candidate = previous?.code === validated.code && previous?.format === validated.format &&
-      now - previous.lastSeenAt <= 1500
-      ? { ...previous, count: previous.count + 1, lastSeenAt: now }
-      : { ...validated, count: 1, lastSeenAt: now };
-    barcodeCandidateRef.current = candidate;
-
-    if (requireConfirmation && candidate.count < 2) return false;
+    if (!validated) return false;
 
     hasScannedRef.current = true;
     setDetectedCode(validated.code);
@@ -218,7 +204,6 @@ export default function BarcodePage() {
     setNotFound('');
     setLookupIssue('');
     hasScannedRef.current = false;
-    barcodeCandidateRef.current = null;
 
     if (!window.isSecureContext && window.location.hostname !== 'localhost') {
       setCameraError('Camera access needs HTTPS or localhost. Use localhost while testing on your computer.');
@@ -271,17 +256,16 @@ export default function BarcodePage() {
       const scanner = new Html5Qrcode(SCANNER_ID, {
         formatsToSupport: FORMATS,
         verbose: false,
+        // Avoid the browser-native decoder: some browsers expose it but cannot
+        // decode EAN/UPC, while the ZXing fallback supports these formats.
+        useBarCodeDetectorIfSupported: false,
       });
       scannerRef.current = scanner;
-
-      const width = Math.min(window.innerWidth - 48, 520);
-      const qrbox = Math.max(240, Math.min(420, Math.floor(width * 0.85)));
 
       await scanner.start(
         { facingMode: 'environment' },
         {
           fps: 30,
-          qrbox: { width: qrbox, height: Math.floor(qrbox * 0.6) },
           // false = also detect flipped/rotated barcodes (common on packaging)
           disableFlip: false,
           videoConstraints: {
@@ -310,13 +294,13 @@ export default function BarcodePage() {
   const scanFromFile = async (file) => {
     if (!file) return;
     hasScannedRef.current = false;
-    barcodeCandidateRef.current = null;
     showToast('Scanning image...', 'info');
 
     try {
       const scanner = new Html5Qrcode(FILE_SCANNER_ID, { 
         formatsToSupport: FORMATS, 
         verbose: false,
+        useBarCodeDetectorIfSupported: false,
       });
       // Pass false to avoid rendering image in DOM, which fails if container is hidden
       const result = await scanner.scanFile(file, false);
@@ -328,7 +312,7 @@ export default function BarcodePage() {
 
       const code = typeof result === 'string' ? result : result.decodedText;
       const format = result?.format?.formatName || null;
-      if (!handleDetectedCode(code, format, false)) {
+      if (!handleDetectedCode(code, format)) {
         showToast('No valid EAN/UPC product barcode found. Check the image and try again.', 'error');
       }
     } catch (error) {
@@ -472,7 +456,6 @@ export default function BarcodePage() {
     setLookupIssue('');
     setCopied(false);
     hasScannedRef.current = false;
-    barcodeCandidateRef.current = null;
   };
 
   const copyToClipboard = async () => {
@@ -527,7 +510,7 @@ export default function BarcodePage() {
           </div>
           <span className="clean-eyebrow"><QrCode size={16} /> Accurate Food Barcode Scanner</span>
           <h2 className="barcode-title hero-display">Know what's really <span className="gradient-shimmer">in your food</span></h2>
-          <p className="barcode-subtitle">Scan EAN or UPC food barcodes. Check digits and repeated camera reads are verified before product lookup.</p>
+          <p className="barcode-subtitle">Scan EAN or UPC food barcodes. Check digits are verified before product lookup.</p>
           <div className="hero-trust-chips">
             <span className="trust-chip"><CheckCircle2 size={14} /> 100% Free</span>
             <span className="trust-chip"><ShieldCheck size={14} /> No sign-up</span>

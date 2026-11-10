@@ -1489,7 +1489,8 @@ function startBarcodeScanner() {
             Html5QrcodeSupportedFormats.UPC_A,
             Html5QrcodeSupportedFormats.UPC_E
         ],
-        verbose: false
+        verbose: false,
+        useBarCodeDetectorIfSupported: false
     });
 
     // Make scan box responsive to screen width
@@ -1998,6 +1999,5 @@ function saveBarcodeToHistory(product) {
     
     localStorage.setItem("food_history", JSON.stringify(history));
 }
-
 
 
