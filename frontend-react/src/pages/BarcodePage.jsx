@@ -274,7 +274,6 @@ export default function BarcodePage() {
       const scanner = new Html5Qrcode(SCANNER_ID, {
         formatsToSupport: FORMATS,
         verbose: false,
-        experimentalFeatures: { useBarCodeDetectorIfSupported: true },
       });
       scannerRef.current = scanner;
 
@@ -290,9 +289,8 @@ export default function BarcodePage() {
           disableFlip: false,
           videoConstraints: {
             facingMode: { ideal: 'environment' },
-            // Higher resolution = better barcode detection at distance
-            width: { ideal: 1920, min: 1280 },
-            height: { ideal: 1080, min: 720 },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
           },
         },
         (decodedText, decodedResult) => {
@@ -322,7 +320,6 @@ export default function BarcodePage() {
       const scanner = new Html5Qrcode(FILE_SCANNER_ID, { 
         formatsToSupport: FORMATS, 
         verbose: false,
-        experimentalFeatures: { useBarCodeDetectorIfSupported: true }
       });
       // Pass false to avoid rendering image in DOM, which fails if container is hidden
       const result = await scanner.scanFile(file, false);
