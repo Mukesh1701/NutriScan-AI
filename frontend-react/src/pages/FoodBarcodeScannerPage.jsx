@@ -13,7 +13,7 @@ const howItWorks = [
     icon: <QrCode />,
     step: '2',
     title: 'Point at the barcode',
-    desc: 'Hold the product up and align the barcode within the camera frame. The AI detects EAN-13, UPC-A, EAN-8, UPC-E, and QR codes instantly.',
+    desc: 'Hold the product up and align its EAN-13, EAN-8, UPC-A, or UPC-E barcode within the camera frame. Valid check digits and repeated camera reads are required before lookup.',
   },
   {
     icon: <CheckCircle2 />,
@@ -30,7 +30,7 @@ const benefits = [
   { icon: <Image />, title: 'Image upload too', desc: 'No camera? Upload a photo of the barcode instead.' },
 ];
 
-const supportedFormats = ['EAN-13', 'EAN-8', 'UPC-A', 'UPC-E', 'CODE-128', 'QR Code'];
+const supportedFormats = ['EAN-13', 'EAN-8', 'UPC-A', 'UPC-E'];
 
 export default function FoodBarcodeScannerPage() {
   useSEO(

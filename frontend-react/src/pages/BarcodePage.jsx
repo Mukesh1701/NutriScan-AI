@@ -4,27 +4,21 @@ import { AlertTriangle, Camera, CheckCircle2, Copy, ExternalLink, History, Image
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { useApp } from '../context/AppContext';
 import { GRADE_INFO, NOVA_LABELS } from '../lib/config';
+import { validateFoodBarcode } from '../lib/barcodeValidation';
 
 const SCANNER_ID = 'barcode-camera-reader';
 const FILE_SCANNER_ID = 'barcode-file-reader';
 // Food-relevant formats only — fewer formats = faster per-frame detection
 const FORMATS = [
-  Html5QrcodeSupportedFormats.QR_CODE,
   Html5QrcodeSupportedFormats.EAN_13,
   Html5QrcodeSupportedFormats.EAN_8,
   Html5QrcodeSupportedFormats.UPC_A,
   Html5QrcodeSupportedFormats.UPC_E,
-  Html5QrcodeSupportedFormats.CODE_128,
 ];
 
-// Native BarcodeDetector formats (Chrome/Edge/Android) — mirrors the list above
-const NATIVE_FORMATS = ['qr_code', 'ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128'];
+const NATIVE_FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e'];
 
-// Food-barcode formats we actually care about. BarcodeDetector exists on
-// desktop Chrome/Edge but ONLY supports qr_code there, so we must verify real
-// format support via getSupportedFormats() before using the native full-frame
-// scanner — otherwise EAN/UPC food barcodes are never detected on desktop.
-const FOOD_NATIVE_FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39'];
+const FOOD_NATIVE_FORMATS = NATIVE_FORMATS;
 
 // Open Food Facts lookup tuning:
 //  - mirrors tried in order (world → country mirrors spread load and provide
@@ -83,8 +77,9 @@ export default function BarcodePage() {
   const scannerRef = useRef(null);
   const fileInputRef = useRef(null);
   const hasScannedRef = useRef(false);
-  const scanCountRef = useRef(0);
+  const barcodeCandidateRef = useRef(null);
   const barcodeInputRef = useRef('');
+  const lookupBarcodeRef = useRef(null);
   // Holds the rAF id for the native BarcodeDetector fast path
   const rafRef = useRef(null);
   // Holds the MediaStream for the native full-frame scanner
@@ -122,34 +117,33 @@ export default function BarcodePage() {
     setScannerRunning(false);
   }, []);
 
-  const detectCodeType = useCallback((code) => {
-    if (!code) return 'Unknown';
-    if (/^[A-Za-z0-9+/=]+$/.test(code) && code.length > 20) return 'QR Code';
-    if (/^\d{13}$/.test(code)) return 'EAN-13';
-    if (/^\d{8}$/.test(code)) return 'EAN-8';
-    if (/^\d{12}$/.test(code)) return 'UPC-A';
-    if (/^\d{6}$/.test(code)) return 'UPC-E';
-    if (/^[A-Za-z0-9\-._~+/]+$/.test(code)) return 'CODE-128';
-    if (/^[A-Z0-9\-. $/+%]+$/.test(code)) return 'CODE-39';
-    if (/^\d{14}$/.test(code)) return 'ITF';
-    return 'Barcode';
-  }, []);
-
-  const handleDetectedCode = useCallback((code, format) => {
-    if (!code) return;
-    
-    scanCountRef.current += 1;
-    if (scanCountRef.current === 1) {
-      hasScannedRef.current = true;
-      const detectedType = format || detectCodeType(code);
-      setDetectedCode(code);
-      setCodeType(detectedType);
-      setBarcodeInput(code);
-      showToast(`${detectedType} detected: ${code}`, 'success');
-      stopScanner();
-      lookupBarcode(code);
+  const handleDetectedCode = useCallback((code, format, requireConfirmation = true) => {
+    const validated = validateFoodBarcode(code, format);
+    if (hasScannedRef.current) return false;
+    if (!validated) {
+      barcodeCandidateRef.current = null;
+      return false;
     }
-  }, [showToast, stopScanner, detectCodeType]);
+
+    const now = Date.now();
+    const previous = barcodeCandidateRef.current;
+    const candidate = previous?.code === validated.code && previous?.format === validated.format &&
+      now - previous.lastSeenAt <= 1500
+      ? { ...previous, count: previous.count + 1, lastSeenAt: now }
+      : { ...validated, count: 1, lastSeenAt: now };
+    barcodeCandidateRef.current = candidate;
+
+    if (requireConfirmation && candidate.count < 2) return false;
+
+    hasScannedRef.current = true;
+    setDetectedCode(validated.code);
+    setCodeType(validated.format);
+    setBarcodeInput(validated.code);
+    showToast(`${validated.format} detected: ${validated.code}`, 'success');
+    stopScanner();
+    lookupBarcodeRef.current?.(validated.code);
+    return true;
+  }, [showToast, stopScanner]);
 
   /**
    * Native full-frame scanner (like professional scanner sites):
@@ -193,11 +187,14 @@ export default function BarcodePage() {
         try {
           const barcodes = await detector.detect(video);
           if (barcodes.length > 0 && !hasScannedRef.current) {
-            // Pick the biggest (closest) barcode in the frame
+            const validBarcodes = barcodes.filter((barcode) =>
+              validateFoodBarcode(barcode.rawValue, barcode.format)
+            );
             const area = (b) => (b.boundingBox?.width || 0) * (b.boundingBox?.height || 0);
-            const best = barcodes.reduce((a, b) => (area(b) > area(a) ? b : a));
-            handleDetectedCode(best.rawValue, best.format?.toUpperCase?.() || null);
-            return; // don't schedule next frame — scanner will be stopped
+            if (validBarcodes.length > 0) {
+              const best = validBarcodes.reduce((a, b) => (area(b) > area(a) ? b : a));
+              if (handleDetectedCode(best.rawValue, best.format || null)) return;
+            }
           }
         } catch (_) {
           // detect() can throw on hidden/zero-size frames — safe to ignore
@@ -209,7 +206,7 @@ export default function BarcodePage() {
     rafRef.current = requestAnimationFrame(loop);
 
     setScannerRunning(true);
-    showToast('Camera ready — hold the barcode anywhere in view.', 'info');
+    showToast('Camera ready — frame an EAN/UPC barcode steadily.', 'info');
   }, [showToast, handleDetectedCode]);
 
   const startScanner = useCallback(async () => {
@@ -221,7 +218,7 @@ export default function BarcodePage() {
     setNotFound('');
     setLookupIssue('');
     hasScannedRef.current = false;
-    scanCountRef.current = 0;
+    barcodeCandidateRef.current = null;
 
     if (!window.isSecureContext && window.location.hostname !== 'localhost') {
       setCameraError('Camera access needs HTTPS or localhost. Use localhost while testing on your computer.');
@@ -301,7 +298,7 @@ export default function BarcodePage() {
       );
 
       setScannerRunning(true);
-      showToast('Camera ready. Point at a QR or barcode.', 'info');
+      showToast('Camera ready. Point at an EAN or UPC product barcode.', 'info');
     } catch (error) {
       console.error('Scanner start failed:', error);
       setCameraError('Could not start camera. Allow camera permission, close other camera apps, and try again.');
@@ -313,7 +310,7 @@ export default function BarcodePage() {
   const scanFromFile = async (file) => {
     if (!file) return;
     hasScannedRef.current = false;
-    scanCountRef.current = 0;
+    barcodeCandidateRef.current = null;
     showToast('Scanning image...', 'info');
 
     try {
@@ -324,14 +321,19 @@ export default function BarcodePage() {
       // Pass false to avoid rendering image in DOM, which fails if container is hidden
       const result = await scanner.scanFile(file, false);
       await scanner.clear();
-      if (result) {
-        const code = typeof result === 'string' ? result : result.decodedText;
-        const format = result?.format?.formatName || detectCodeType(code);
-        handleDetectedCode(code, format);
+      if (!result) {
+        showToast('No valid EAN/UPC product barcode found. Check the image and try again.', 'error');
+        return;
+      }
+
+      const code = typeof result === 'string' ? result : result.decodedText;
+      const format = result?.format?.formatName || null;
+      if (!handleDetectedCode(code, format, false)) {
+        showToast('No valid EAN/UPC product barcode found. Check the image and try again.', 'error');
       }
     } catch (error) {
       console.error('File scan failed:', error);
-      showToast('No QR/barcode found in image.', 'error');
+      showToast('No valid EAN/UPC product barcode found. Check the image and try again.', 'error');
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
@@ -456,6 +458,7 @@ export default function BarcodePage() {
       setLookupLoading(false);
     }
   }, [showToast, loadScanHistory, fetchOffProduct, barcodeInput]);
+  useEffect(() => { lookupBarcodeRef.current = lookupBarcode; }, [lookupBarcode]);
 
   const resetScanner = async () => {
     await stopScanner();
@@ -469,7 +472,7 @@ export default function BarcodePage() {
     setLookupIssue('');
     setCopied(false);
     hasScannedRef.current = false;
-    scanCountRef.current = 0;
+    barcodeCandidateRef.current = null;
   };
 
   const copyToClipboard = async () => {
@@ -522,9 +525,9 @@ export default function BarcodePage() {
             <span className="fe fe-4">🥕</span>
             <span className="fe fe-5">🍇</span>
           </div>
-          <span className="clean-eyebrow"><QrCode size={16} /> Fast QR & Barcode Scanner</span>
+          <span className="clean-eyebrow"><QrCode size={16} /> Accurate Food Barcode Scanner</span>
           <h2 className="barcode-title hero-display">Know what's really <span className="gradient-shimmer">in your food</span></h2>
-          <p className="barcode-subtitle">Point your camera at any product barcode and instantly get its health grade, nutrition breakdown, and ingredient alerts.</p>
+          <p className="barcode-subtitle">Scan EAN or UPC food barcodes. Check digits and repeated camera reads are verified before product lookup.</p>
           <div className="hero-trust-chips">
             <span className="trust-chip"><CheckCircle2 size={14} /> 100% Free</span>
             <span className="trust-chip"><ShieldCheck size={14} /> No sign-up</span>
@@ -538,7 +541,7 @@ export default function BarcodePage() {
               <span className="hiw-num">1</span>
               <div className="hiw-icon"><Camera size={22} /></div>
               <h4>Scan</h4>
-              <p>Point your camera at any food barcode or QR code.</p>
+              <p>Hold an EAN or UPC product barcode steady in the frame.</p>
             </div>
             <div className="hiw-arrow" aria-hidden="true">→</div>
             <div className="hiw-step">

@@ -1487,9 +1487,7 @@ function startBarcodeScanner() {
             Html5QrcodeSupportedFormats.EAN_13,
             Html5QrcodeSupportedFormats.EAN_8,
             Html5QrcodeSupportedFormats.UPC_A,
-            Html5QrcodeSupportedFormats.UPC_E,
-            Html5QrcodeSupportedFormats.CODE_128,
-            Html5QrcodeSupportedFormats.CODE_39
+            Html5QrcodeSupportedFormats.UPC_E
         ],
         verbose: false
     });
@@ -2000,7 +1998,6 @@ function saveBarcodeToHistory(product) {
     
     localStorage.setItem("food_history", JSON.stringify(history));
 }
-
 
 
 
