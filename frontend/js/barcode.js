@@ -40,8 +40,7 @@ function startBarcodeScanner() {
             Html5QrcodeSupportedFormats.CODE_128,
             Html5QrcodeSupportedFormats.CODE_39
         ],
-        verbose: false,
-        experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+        verbose: false
     });
 
     // Responsive scan-box dimensions
